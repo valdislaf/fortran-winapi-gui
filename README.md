@@ -24,7 +24,7 @@ Or use the provided `build.bat`.
 
 ## Screenshot
 
-*(Add your screenshot file and link here if desired)*
+![App Screenshot](screenshot.png)
 
 ## License
 
