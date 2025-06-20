@@ -1,4 +1,4 @@
-        !COMPILER-GENERATED INTERFACE MODULE: Fri Jun 20 12:05:41 2025
+        !COMPILER-GENERATED INTERFACE MODULE: Fri Jun 20 12:28:47 2025
         ! This source file is for reference only and may not completely
         ! represent the generated interface used by the compiler.
         MODULE WNDPROC__genmod
