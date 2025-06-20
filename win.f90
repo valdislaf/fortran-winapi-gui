@@ -40,23 +40,26 @@ module string_utils
   implicit none
 contains
 
-  function to_wide_null_terminated(text, max_len) result(wide)
-    character(len=*), intent(in) :: text
-    integer, intent(in) :: max_len
-    character(kind=c_wchar_t), dimension(max_len) :: wide
-    integer :: i, k
+ function to_wide_null_terminated(text) result(wide)
+  use iso_c_binding
+  implicit none
+  character(len=*), intent(in) :: text
+  character(kind=c_wchar_t), allocatable :: wide(:)
+  integer :: i, k, n
 
-    wide = char(0, kind=c_wchar_t)  ! Заполнение нулями
-    k = 1
+  n = len_trim(text)
+  allocate(wide(2 * n + 1))
+  wide = char(0, kind=c_wchar_t)
 
-    do i = 1, len_trim(text)
-      if (k > max_len - 1) exit
-      wide(k) = text(i:i)
-      k = k + 1
-      wide(k) = char(0, kind=c_wchar_t)
-      k = k + 1
-    end do
-  end function
+  k = 1
+  do i = 1, n
+    wide(k) = text(i:i)
+    k = k + 1
+    wide(k) = char(0, kind=c_wchar_t)
+    k = k + 1
+  end do
+end function
+
 
 end module string_utils
 
@@ -187,21 +190,19 @@ program WinMain
   !integer(c_int32_t), parameter :: COLOR_BTNFACE = 21  ! тёмно-серый системный цвет
   integer(c_int32_t) :: darkBrushColor
   type(c_ptr) :: hBrush  
-  character(kind=c_wchar_t), dimension(32), target :: windowTitleW, classNameW
+  character(kind=c_wchar_t), allocatable, target :: windowTitleW(:), classNameW(:), iconPathW(:), cursorPathW(:)
   integer(c_int32_t), parameter :: IMAGE_ICON = 1
   integer(c_int32_t), parameter :: LR_LOADFROMFILE = int(Z'0010', c_int32_t)
-  character(kind=c_wchar_t), dimension(256), target :: iconPathW
-  character(kind=c_wchar_t), dimension(64), target :: cursorPathW
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  cursorPathW(1:32) = to_wide_null_terminated("cross.ico", 32)
-  iconPathW(1:32) = to_wide_null_terminated("favicon.ico", 32)
+  cursorPathW = to_wide_null_terminated("cross.ico")
+  iconPathW = to_wide_null_terminated("favicon.ico")
 
   darkBrushColor = int(Z'00321E0A', c_int32_t)  ! B=0A, G=1E, R=32
   hBrush = CreateSolidBrush(darkBrushColor)  
 
-  classNameW(1:32) = to_wide_null_terminated("My window class", 32)
-  windowTitleW(1:32) = to_wide_null_terminated("Fortran Window", 32)
+  classNameW = to_wide_null_terminated("My window class")
+  windowTitleW = to_wide_null_terminated("Fortran Window")
 
   hInstance = c_null_ptr
   
