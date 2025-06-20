@@ -196,15 +196,11 @@ program WinMain
   cursorPathW(1:32) = to_wide_null_terminated("cross.ico", 32)
   iconPathW(1:32) = to_wide_null_terminated("favicon.ico", 32)
 
-
   darkBrushColor = int(Z'00321E0A', c_int32_t)  ! B=0A, G=1E, R=32
-  hBrush = CreateSolidBrush(darkBrushColor)
-  
+  hBrush = CreateSolidBrush(darkBrushColor)  
 
   classNameW(1:32) = to_wide_null_terminated("My window class", 32)
-
   windowTitleW(1:32) = to_wide_null_terminated("Fortran Window", 32)
-
 
   hInstance = c_null_ptr
 
