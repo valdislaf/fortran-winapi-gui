@@ -1,8 +1,8 @@
 .git/
 .temp/
 .vs/
+.x64/
 Win/
 *.exe
 *.mod
 *.o
-*.sln
