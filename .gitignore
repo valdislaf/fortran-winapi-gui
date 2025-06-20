@@ -7,3 +7,5 @@ Win/
 *.exe
 *.mod
 *.o
+/x64/Debug/Win.pdb
+/x64/Debug/wndproc__genmod.f90
