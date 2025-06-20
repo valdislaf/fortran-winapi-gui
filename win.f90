@@ -179,6 +179,7 @@ program WinMain
   end interface
   
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  
   integer(c_int32_t) :: regResult
   type(WNDCLASSEX), target :: wcx
   type(MSG_T), target :: msg_inst
@@ -203,7 +204,7 @@ program WinMain
   windowTitleW(1:32) = to_wide_null_terminated("Fortran Window", 32)
 
   hInstance = c_null_ptr
-
+  
   wcx%cbSize = c_sizeof(wcx)
   wcx%style = 0
   wcx%lpfnWndProc = c_funloc(WndProc)
