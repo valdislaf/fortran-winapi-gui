@@ -3,7 +3,6 @@ module globals
   implicit none
   type(c_ptr) :: hPanel
 end module globals
-
     
 module win_types
 use iso_c_binding, only: int => c_int32_t, i_ptr => c_intptr_t, ptr => c_ptr, f_ptr => c_funptr, nullptr => c_null_ptr, char => c_char
@@ -14,12 +13,12 @@ use iso_c_binding, only: int => c_int32_t, i_ptr => c_intptr_t, ptr => c_ptr, f_
   integer(int), parameter :: WM_DESTROY = Z'0002'
   integer(int), parameter :: WM_SIZE = Z'0005'
 
-  type, bind(C) :: WNDCLASSEX
-    integer(int) :: cbSize
-    integer(int) :: style
-    type(f_ptr)     :: lpfnWndProc
-    integer(int) :: cbClsExtra
-    integer(int) :: cbWndExtra
+  type, bind(C)      :: WNDCLASSEX
+    integer(int)     :: cbSize
+    integer(int)     :: style
+    type(f_ptr)      :: lpfnWndProc
+    integer(int)     :: cbClsExtra
+    integer(int)     :: cbWndExtra
     type(ptr)        :: hInstance
     type(ptr)        :: hIcon
     type(ptr)        :: hCursor
@@ -32,10 +31,10 @@ use iso_c_binding, only: int => c_int32_t, i_ptr => c_intptr_t, ptr => c_ptr, f_
 
   type, bind(C) :: MSG_T
     type(ptr)         :: hwnd
-    integer(int)  :: message
-    integer(i_ptr) :: wParam
-    integer(i_ptr) :: lParam
-    integer(int)  :: time
+    integer(int)      :: message
+    integer(i_ptr)    :: wParam
+    integer(i_ptr)    :: lParam
+    integer(int)      :: time
     type(ptr)         :: pt
   end type
 
@@ -165,9 +164,7 @@ module win_api
       integer(c_int32_t), value :: X, Y, nWidth, nHeight
       logical(c_bool), value :: bRepaint
     end subroutine
-
-
-
+    
   end interface
 end module win_api
         
@@ -176,10 +173,10 @@ function WndProc(hWnd, Msg, wParam, lParam) bind(C) result(res)
   use win_api
   use globals
   implicit none
-  type(ptr), value :: hWnd
-  integer(int), value :: Msg
+  type(ptr), value      :: hWnd
+  integer(int), value   :: Msg
   integer(i_ptr), value :: wParam, lParam
-  integer(i_ptr) :: res
+  integer(i_ptr)        :: res
  
   integer(int) :: width, height, lp32, panelActualWidth
   
@@ -188,7 +185,7 @@ function WndProc(hWnd, Msg, wParam, lParam) bind(C) result(res)
     call PostQuitMessage(0)
     res = 0
   case (WM_SIZE)
-    lp32 = transfer(lParam, 0_int)
+    lp32 =   transfer(lParam, 0_int)
     width  = iand(lp32, Z'FFFF')
     height = iand(ishft(lp32, -16), Z'FFFF')
     print *, "New size: ", width, "x", height
@@ -225,67 +222,65 @@ program WinMain
   integer(int), parameter :: WS_CHILD_VISIBLE = WS_CHILD + WS_VISIBLE  
   integer(int), parameter :: panelWidth = 800 / 10
 
-
   ! Подготовка ресурсов
-  cursorPathW = to_wide_null_terminated("cross.ico")
-  iconPathW = to_wide_null_terminated("favicon.ico")
-  classNameW = to_wide_null_terminated("My window class")
-  windowTitleW = to_wide_null_terminated("Fortran Window")
-  panelClassW = to_wide_null_terminated("PanelClass")
+  cursorPathW    = to_wide_null_terminated("cross.ico")
+  iconPathW      = to_wide_null_terminated("favicon.ico")
+  classNameW     = to_wide_null_terminated("My window class")
+  windowTitleW   = to_wide_null_terminated("Fortran Window")
+  panelClassW    = to_wide_null_terminated("PanelClass")
 
   darkBrushColor = Z'00321E0A'
-  hBrush = CreateSolidBrush(darkBrushColor)
-  hPanelBrush = CreateSolidBrush(Z'00FF8000')  ! Яркий цвет панели (оранжево-зелёный)
+  hBrush         = CreateSolidBrush(darkBrushColor)
+  hPanelBrush    = CreateSolidBrush(Z'00FF8000')  ! Яркий цвет панели (оранжево-зелёный)
 
   hInstance = nullptr
 
   ! Класс главного окна
-  wcx%cbSize = c_sizeof(wcx)
-  wcx%style = 0
-  wcx%lpfnWndProc = c_funloc(WndProc)
-  wcx%cbClsExtra = 0
-  wcx%cbWndExtra = 0
-  wcx%hInstance = hInstance
-  wcx%hIcon = LoadImageW(nullptr, c_loc(iconPathW(1)), IMAGE_ICON, 0, 0, LR_LOADFROMFILE)
-  wcx%hCursor = LoadImageW(nullptr, c_loc(cursorPathW(1)), IMAGE_ICON, 0, 0, LR_LOADFROMFILE)
-  wcx%hbrBackground = hBrush
-  wcx%lpszMenuName = nullptr
-  wcx%lpszClassName = c_loc(classNameW(1))
-  wcx%hIconSm = wcx%hIcon
-
-  regResult = RegisterClassExW(c_loc(wcx))
+  wcx%cbSize             = c_sizeof(wcx)
+  wcx%style              = 0
+  wcx%lpfnWndProc        = c_funloc(WndProc)
+  wcx%cbClsExtra         = 0
+  wcx%cbWndExtra         = 0
+  wcx%hInstance          = hInstance
+  wcx%hIcon              = LoadImageW(nullptr, c_loc(iconPathW(1)), IMAGE_ICON, 0, 0, LR_LOADFROMFILE)
+  wcx%hCursor            = LoadImageW(nullptr, c_loc(cursorPathW(1)), IMAGE_ICON, 0, 0, LR_LOADFROMFILE)
+  wcx%hbrBackground      = hBrush
+  wcx%lpszMenuName       = nullptr
+  wcx%lpszClassName      = c_loc(classNameW(1))
+  wcx%hIconSm            = wcx%hIcon
+  regResult              = RegisterClassExW(c_loc(wcx))
 
   ! Класс панели
-    wcxPanel%cbSize = wcx%cbSize
-    wcxPanel%style = wcx%style
-    wcxPanel%lpfnWndProc = wcx%lpfnWndProc
-    wcxPanel%cbClsExtra = wcx%cbClsExtra
-    wcxPanel%cbWndExtra = wcx%cbWndExtra
-    wcxPanel%hInstance = wcx%hInstance
-    wcxPanel%hIcon = wcx%hIcon
-    wcxPanel%hCursor = wcx%hCursor
-    wcxPanel%hbrBackground = wcx%hbrBackground
-    wcxPanel%lpszMenuName = wcx%lpszMenuName
-    wcxPanel%lpszClassName = wcx%lpszClassName
-    wcxPanel%hIconSm = wcx%hIconSm
+  wcxPanel%cbSize        = wcx%cbSize
+  wcxPanel%style         = wcx%style
+  wcxPanel%lpfnWndProc   = wcx%lpfnWndProc
+  wcxPanel%cbClsExtra    = wcx%cbClsExtra
+  wcxPanel%cbWndExtra    = wcx%cbWndExtra
+  wcxPanel%hInstance     = wcx%hInstance
+  wcxPanel%hIcon         = wcx%hIcon
+  wcxPanel%hCursor       = wcx%hCursor
+  wcxPanel%hbrBackground = wcx%hbrBackground
+  wcxPanel%lpszMenuName  = wcx%lpszMenuName
+  wcxPanel%lpszClassName = wcx%lpszClassName
+  wcxPanel%hIconSm       = wcx%hIconSm
 
   wcxPanel%hbrBackground = hPanelBrush
   wcxPanel%lpszClassName = c_loc(panelClassW(1))
-  regResult = RegisterClassExW(c_loc(wcxPanel))
+  regResult              = RegisterClassExW(c_loc(wcxPanel))
 
   ! Сначала главное окно
-    hwnd = CreateWindowExW(0, c_loc(classNameW(1)), c_loc(windowTitleW(1)), &
-                           WS_OVERLAPPEDWINDOW, 100, 100, 800, 600, nullptr, nullptr, hInstance, nullptr)
+  hwnd = CreateWindowExW(0, c_loc(classNameW(1)), c_loc(windowTitleW(1)), &
+                         WS_OVERLAPPEDWINDOW, 100, 100, 800, 600, nullptr, nullptr, hInstance, nullptr)
 
-    call ShowWindow(hwnd, SW_SHOW)
-    call UpdateWindow(hwnd)
+  call ShowWindow(hwnd, SW_SHOW)
+  call UpdateWindow(hwnd)
 
-    ! Затем создаём панель
-    hPanel = CreateWindowExW(0, c_loc(panelClassW(1)), nullptr, &
-             WS_CHILD_VISIBLE, 0, 0, panelWidth, 600, hwnd, nullptr, hInstance, nullptr)
+  ! Затем создаём панель
+  hPanel = CreateWindowExW(0, c_loc(panelClassW(1)), nullptr, &
+           WS_CHILD_VISIBLE, 0, 0, panelWidth, 600, hwnd, nullptr, hInstance, nullptr)
 
-    call ShowWindow(hPanel, SW_SHOW)
-    call UpdateWindow(hPanel)
+  call ShowWindow(hPanel, SW_SHOW)
+  call UpdateWindow(hPanel)
 
   ! Цикл сообщений
   do while (GetMessageW(c_loc(msg_inst), nullptr, 0, 0) > 0)
