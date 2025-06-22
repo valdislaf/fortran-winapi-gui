@@ -1,9 +1,11 @@
+! Глобальные переменные
 module globals
   use iso_c_binding, only: c_ptr
   implicit none
   type(c_ptr) :: hPanel
 end module globals
     
+! Типы и константы WinAPI
 module win_types
 use iso_c_binding, only: int => c_int32_t, i_ptr => c_intptr_t, ptr => c_ptr, f_ptr => c_funptr, nullptr => c_null_ptr, char => c_char
   implicit none
@@ -40,6 +42,7 @@ use iso_c_binding, only: int => c_int32_t, i_ptr => c_intptr_t, ptr => c_ptr, f_
 
 end module win_types
 
+! Преобразование строк в UTF-16
 module string_utils
   use win_types
   implicit none
@@ -63,12 +66,14 @@ contains
     end function
 end module string_utils
 
+! Общие типы и утилиты
 module standard
   use iso_c_binding
   use win_types
   use string_utils
 end module standard 
     
+! Интерфейсы к функциям WinAPI
 module win_api
     interface    
     function RegisterClassExW(lpWndClass) bind(C, name="RegisterClassExW")
@@ -168,6 +173,7 @@ module win_api
   end interface
 end module win_api
         
+! Обработчик сообщений окна
 function WndProc(hWnd, Msg, wParam, lParam) bind(C) result(res)
   use standard
   use win_api
@@ -199,6 +205,7 @@ function WndProc(hWnd, Msg, wParam, lParam) bind(C) result(res)
   end select
 end function
 
+! Главная программа
 program WinMain
   use win_api
   use standard  
