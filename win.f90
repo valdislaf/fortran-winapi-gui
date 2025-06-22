@@ -12,13 +12,25 @@ module win_types
   implicit none
 
   ! Константы для окон и сообщений
-  integer(int), parameter :: WS_OVERLAPPEDWINDOW = 13565952
+  integer(int), parameter :: WS_OVERLAPPEDWINDOW = 13565952     ! 0x00CF0000
+  integer(int), parameter :: WS_VISIBLE          = 268435456    ! 0x10000000
+  integer(int), parameter :: WS_CHILD            = 1073741824   ! 0x40000000
+  integer(int), parameter :: WS_CHILD_VISIBLE    = WS_CHILD + WS_VISIBLE
   integer(int), parameter :: SW_SHOW             = 5
+
+  ! Сообщения Windows
   integer(int), parameter :: WM_DESTROY          = 2
   integer(int), parameter :: WM_SIZE             = 5
+  integer(int), parameter :: WM_COMMAND          = 273          ! 0x0111
 
+  ! Стиль кнопок
+  integer(int), parameter :: BS_PUSHBUTTON       = 0
+  integer(int), parameter :: BS_DEFPUSHBUTTON    = 1
 
-  ! Структура класса окна WinAPI
+  ! Идентификаторы управляющих элементов
+  integer(int), parameter :: ID_BUTTON1          = 1001
+
+  ! Структура класса окна
   type, bind(C) :: WNDCLASSEX
     integer(int)     :: cbSize
     integer(int)     :: style
@@ -34,7 +46,7 @@ module win_types
     type(ptr)        :: hIconSm
   end type
 
-  ! Структура сообщения WinAPI
+  ! Структура сообщения
   type, bind(C) :: MSG_T
     type(ptr)         :: hwnd
     integer(int)      :: message
@@ -46,30 +58,39 @@ module win_types
 
 end module win_types
 
+
 ! Преобразование строк в UTF-16 (для WinAPI)
 module string_utils
   use win_types
   implicit none
+
 contains
+
   ! Преобразует строку в массив символов UTF-16 с завершающим нулём
-  function to_wide_null_terminated(text) result(wide)
-    use iso_c_binding
-    implicit none
-    character(len=*), intent(in) :: text
-    character(kind=char), allocatable, target :: wide(:)
-    integer :: i, k, n
-    n = len_trim(text)
-    allocate(wide(2 * n + 1))
-    wide = achar(0)
-    k = 1
-    do i = 1, n
-      wide(k) = text(i:i)
-      k = k + 1
-      wide(k) = achar(0)
-      k = k + 1
-    end do
-    ! wide(:) теперь содержит UTF-16 строку с завершающим нулём
-  end function
+ function to_wide_null_terminated(text) result(wide)
+ 
+  use iso_c_binding, only: c_char, c_null_char
+      implicit none
+      character(len=*), intent(in) :: text
+      character(kind=c_char), allocatable, target :: wide(:)
+      integer :: i, k, n
+
+      n = len_trim(text)
+      allocate(wide(2 * n + 2))  ! на 1 WCHAR больше (== 2 char) для завершающего \0
+
+      k = 1
+      do i = 1, n
+        wide(k) = text(i:i)
+        k = k + 1
+        wide(k) = c_null_char
+        k = k + 1
+      end do
+
+      ! Завершающий WCHAR (\0\0)
+      wide(k) = c_null_char
+      wide(k + 1) = c_null_char
+    end function
+
 end module string_utils
 
 ! Общие типы и утилиты
@@ -170,7 +191,7 @@ module win_api
     
   end interface
 contains
-        ! Обработчик сообщений окна (WndProc)
+    ! Обработчик сообщений окна (WndProc)
     function WndProc(hWnd, Msg, wParam, lParam) bind(C) result(res)
       use standard
       use globals
@@ -198,7 +219,7 @@ contains
 
         ! Изменяем размер панели вместе с окном
         call MoveWindow(hPanel, 0, 0, panelActualWidth, height, .true._c_bool)
-
+        call UpdateWindow(hPanel)
       case default
         ! Все остальные сообщения — стандартная обработка
         res = DefWindowProcW(hWnd, Msg, wParam, lParam)
@@ -234,11 +255,15 @@ program WinMain
   ! Константы для создания окон и ресурсов
   integer(int), parameter :: IMAGE_ICON = 1
   integer(int), parameter :: LR_LOADFROMFILE = 16            ! 0x0010
-  integer(int), parameter :: WS_VISIBLE      = 268435456     ! 0x10000000
-  integer(int), parameter :: WS_CHILD        = 1073741824    ! 0x40000000
-  integer(int), parameter :: WS_CHILD_VISIBLE = WS_CHILD + WS_VISIBLE
   integer(int), parameter :: panelWidth = 800 / 10
-
+  
+  ! Переменные для кнопки
+  type(ptr) :: hButton
+  character(kind=char), allocatable, target :: buttonTextW(:)
+  type(c_ptr) :: hMenuAsPtr
+  integer(i_ptr) :: id_temp
+  character(kind=c_char), allocatable, target :: classButtonW(:)
+  
   ! Подготовка ресурсов (иконки, курсоры, имена классов)
   !Выделение памяти с нужным размером
   allocate(cursorPathW(0)) ! ← аналог "инициализации значением по умолчанию" как в С++
@@ -247,7 +272,12 @@ program WinMain
   classNameW     = to_wide_null_terminated("My window class")
   windowTitleW   = to_wide_null_terminated("Fortran Window")
   panelClassW    = to_wide_null_terminated("PanelClass")
+  buttonTextW    = to_wide_null_terminated("Click me")  
+  classButtonW   = to_wide_null_terminated("Button")
 
+  id_temp = ID_BUTTON1
+  hMenuAsPtr = transfer(id_temp, hMenuAsPtr)
+  
   darkBrushColor = MakeARGB(0, 50, 30, 10)                  ! 0x00321E0A
   hBrush         = CreateSolidBrush(darkBrushColor)       ! кисть для фона главного окна
   hPanelBrush    = CreateSolidBrush(MakeARGB(0, 40, 20, 0))             ! кисть для панели 
@@ -291,16 +321,30 @@ program WinMain
   hwnd = CreateWindowExW(0, c_loc(classNameW(1)), c_loc(windowTitleW(1)), &
                          WS_OVERLAPPEDWINDOW, 100, 100, 800, 600, nullptr, nullptr, hInstance, nullptr)
 
-  call ShowWindow(hwnd, SW_SHOW)
-  call UpdateWindow(hwnd)
-
   ! Затем создаём панель как дочернее окно
   hPanel = CreateWindowExW(0, c_loc(panelClassW(1)), nullptr, &
-           WS_CHILD_VISIBLE, 0, 0, panelWidth, 600, hwnd, nullptr, hInstance, nullptr)
+           WS_CHILD_VISIBLE, 0, 0, panelWidth, 600, hwnd, nullptr, hInstance, nullptr)  
+  
+! Затем создаём кнопку
+  hButton = CreateWindowExW(0, c_loc(classButtonW(1)), &
+             c_loc(buttonTextW(1)), WS_CHILD_VISIBLE + BS_DEFPUSHBUTTON, &
+             2, 2, panelWidth-4, 26, hPanel, hMenuAsPtr, hInstance, nullptr)
 
+  
+  if (.not. c_associated(hButton)) then
+      print *, "Кнопка не создана! Ошибка:", GetLastError()
+  else
+      print *, "Кнопка успешно создана!"
+  end if
+
+  
+  call ShowWindow(hwnd, SW_SHOW)
+  call UpdateWindow(hwnd)
   call ShowWindow(hPanel, SW_SHOW)
   call UpdateWindow(hPanel)
-
+  call ShowWindow(hButton, SW_SHOW)
+  call UpdateWindow(hButton)
+  
   ! Основной цикл обработки сообщений Windows
   do while (GetMessageW(c_loc(msg_inst), nullptr, 0, 0) > 0)
     call TranslateMessage(c_loc(msg_inst))
