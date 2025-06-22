@@ -7,14 +7,16 @@ end module globals
 
 ! Типы и константы WinAPI
 module win_types
-  use iso_c_binding, only: int => c_int32_t, i_ptr => c_intptr_t, ptr => c_ptr, f_ptr => c_funptr, nullptr => c_null_ptr, char => c_char
+  use iso_c_binding, only: int => c_int32_t, i_ptr => c_intptr_t, ptr => c_ptr, f_ptr => c_funptr, &
+      nullptr => c_null_ptr, char => c_char
   implicit none
 
   ! Константы для окон и сообщений
-  integer(int), parameter :: WS_OVERLAPPEDWINDOW = Z'00CF0000'
-  integer(int), parameter :: SW_SHOW = 5
-  integer(int), parameter :: WM_DESTROY = Z'0002'
-  integer(int), parameter :: WM_SIZE = Z'0005'
+  integer(int), parameter :: WS_OVERLAPPEDWINDOW = 13565952
+  integer(int), parameter :: SW_SHOW             = 5
+  integer(int), parameter :: WM_DESTROY          = 2
+  integer(int), parameter :: WM_SIZE             = 5
+
 
   ! Структура класса окна WinAPI
   type, bind(C) :: WNDCLASSEX
@@ -54,7 +56,7 @@ contains
     use iso_c_binding
     implicit none
     character(len=*), intent(in) :: text
-    character(kind=char), allocatable :: wide(:)
+    character(kind=char), allocatable, target :: wide(:)
     integer :: i, k, n
     n = len_trim(text)
     allocate(wide(2 * n + 1))
@@ -127,14 +129,6 @@ module win_api
       type(ptr), value :: lpMsg
     end subroutine
 
-    function WndProc(hWnd, Msg, wParam, lParam) bind(C)
-      use standard
-      type(ptr), value :: hWnd
-      integer(int), value :: Msg
-      integer(i_ptr), value :: wParam, lParam
-      integer(i_ptr) :: WndProc
-    end function
-
     function GetSysColorBrush(nIndex) bind(C, name="GetSysColorBrush")
       use standard
       integer(int), value :: nIndex
@@ -175,44 +169,42 @@ module win_api
     end subroutine
 
   end interface
+contains
+        ! Обработчик сообщений окна (WndProc)
+    function WndProc(hWnd, Msg, wParam, lParam) bind(C) result(res)
+      use standard
+      use globals
+      implicit none
+      type(ptr), value      :: hWnd
+      integer(int), value   :: Msg
+      integer(i_ptr), value :: wParam, lParam
+      integer(i_ptr)        :: res 
+      integer(int)          :: width, height, lp32, panelActualWidth
+
+      select case (Msg)
+      case (WM_DESTROY)
+        ! Сообщение о закрытии окна — завершить цикл сообщений
+        call PostQuitMessage(0)
+        res = 0
+      case (WM_SIZE)
+        ! Сообщение об изменении размера окна
+        lp32 = transfer(lParam, 0_int)
+        width  = iand(lp32, 65535)              ! ширина окна = младшие 16 бит
+        height = iand(ishft(lp32, -16), 65535)  ! высота окна = старшие 16 бит
+        print *, "New size: ", width, "x", height
+
+        ! Вычисляем ширину панели: минимум 80 пикселей или 1/10 ширины окна
+        panelActualWidth = max(80, width / 10)
+
+        ! Изменяем размер панели вместе с окном
+        call MoveWindow(hPanel, 0, 0, panelActualWidth, height, .true._c_bool)
+
+      case default
+        ! Все остальные сообщения — стандартная обработка
+        res = DefWindowProcW(hWnd, Msg, wParam, lParam)
+      end select
+    end function WndProc
 end module win_api
-
-! Обработчик сообщений окна (WndProc)
-function WndProc(hWnd, Msg, wParam, lParam) bind(C) result(res)
-  use standard
-  use win_api
-  use globals
-  implicit none
-  type(ptr), value      :: hWnd
-  integer(int), value   :: Msg
-  integer(i_ptr), value :: wParam, lParam
-  integer(i_ptr)        :: res
-
-  integer(int) :: width, height, lp32, panelActualWidth
-
-  select case (Msg)
-  case (WM_DESTROY)
-    ! Сообщение о закрытии окна — завершить цикл сообщений
-    call PostQuitMessage(0)
-    res = 0
-  case (WM_SIZE)
-    ! Сообщение об изменении размера окна
-    lp32 = transfer(lParam, 0_int)
-    width  = iand(lp32, Z'FFFF')                ! ширина окна
-    height = iand(ishft(lp32, -16), Z'FFFF')    ! высота окна
-    print *, "New size: ", width, "x", height
-
-    ! Вычисляем ширину панели: минимум 80 пикселей или 1/10 ширины окна
-    panelActualWidth = max(80, width / 10)
-
-    ! Изменяем размер панели вместе с окном
-    call MoveWindow(hPanel, 0, 0, panelActualWidth, height, .true.)
-
-  case default
-    ! Все остальные сообщения — стандартная обработка
-    res = DefWindowProcW(hWnd, Msg, wParam, lParam)
-  end select
-end function
 
 ! Главная программа
 program WinMain
@@ -229,25 +221,27 @@ program WinMain
   integer(int) :: darkBrushColor
   character(kind=char), allocatable, target :: windowTitleW(:), classNameW(:), panelClassW(:)
   character(kind=char), allocatable, target :: iconPathW(:), cursorPathW(:)
-
+  
   ! Константы для создания окон и ресурсов
   integer(int), parameter :: IMAGE_ICON = 1
-  integer(int), parameter :: LR_LOADFROMFILE = Z'0010'
-  integer(int), parameter :: WS_VISIBLE = Z'10000000'
-  integer(int), parameter :: WS_CHILD = Z'40000000'
+  integer(int), parameter :: LR_LOADFROMFILE = 16            ! 0x0010
+  integer(int), parameter :: WS_VISIBLE      = 268435456     ! 0x10000000
+  integer(int), parameter :: WS_CHILD        = 1073741824    ! 0x40000000
   integer(int), parameter :: WS_CHILD_VISIBLE = WS_CHILD + WS_VISIBLE
   integer(int), parameter :: panelWidth = 800 / 10
 
   ! Подготовка ресурсов (иконки, курсоры, имена классов)
+  !Выделение памяти с нужным размером
+  allocate(cursorPathW(0)) ! ← аналог "инициализации значением по умолчанию" как в С++
   cursorPathW    = to_wide_null_terminated("cross.ico")
   iconPathW      = to_wide_null_terminated("favicon.ico")
   classNameW     = to_wide_null_terminated("My window class")
   windowTitleW   = to_wide_null_terminated("Fortran Window")
   panelClassW    = to_wide_null_terminated("PanelClass")
 
-  darkBrushColor = Z'00321E0A'
-  hBrush         = CreateSolidBrush(darkBrushColor)      ! Кисть для фона главного окна
-  hPanelBrush    = CreateSolidBrush(Z'00FF8000')         ! Яркая кисть для панели (оранжево-зелёный)
+  darkBrushColor = 3284490                 ! 0x00321E0A
+  hBrush         = CreateSolidBrush(darkBrushColor)       ! Кисть для фона главного окна
+  hPanelBrush    = CreateSolidBrush(16744448)             ! Яркая кисть для панели 
 
   hInstance = nullptr  ! В данном примере не используется
 
