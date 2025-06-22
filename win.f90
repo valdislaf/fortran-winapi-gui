@@ -167,7 +167,7 @@ module win_api
       integer(c_int32_t), value :: X, Y, nWidth, nHeight
       logical(c_bool), value :: bRepaint
     end subroutine
-
+    
   end interface
 contains
         ! Обработчик сообщений окна (WndProc)
@@ -204,6 +204,15 @@ contains
         res = DefWindowProcW(hWnd, Msg, wParam, lParam)
       end select
     end function WndProc
+    
+    function MakeARGB(A, R, G, B) result(color)
+      use iso_c_binding
+      implicit none
+      integer(c_int32_t), intent(in) :: A, R, G, B
+      integer(c_int32_t) :: color
+      color = IOR(ISHFT(A, 24), IOR(ISHFT(R, 16), IOR(ISHFT(G, 8), B)))
+    end function MakeARGB
+    
 end module win_api
 
 ! Главная программа
@@ -239,9 +248,9 @@ program WinMain
   windowTitleW   = to_wide_null_terminated("Fortran Window")
   panelClassW    = to_wide_null_terminated("PanelClass")
 
-  darkBrushColor = 3284490                 ! 0x00321E0A
-  hBrush         = CreateSolidBrush(darkBrushColor)       ! Кисть для фона главного окна
-  hPanelBrush    = CreateSolidBrush(16744448)             ! Яркая кисть для панели 
+  darkBrushColor = MakeARGB(0, 50, 30, 10)                  ! 0x00321E0A
+  hBrush         = CreateSolidBrush(darkBrushColor)       ! кисть для фона главного окна
+  hPanelBrush    = CreateSolidBrush(MakeARGB(0, 40, 20, 0))             ! кисть для панели 
 
   hInstance = nullptr  ! В данном примере не используется
 
