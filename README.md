@@ -17,7 +17,7 @@ It demonstrates how to create a basic window, handle events, show Unicode titles
 Use `gfortran` with these flags:
 
 ```bash
-gfortran win.f95 -o win.exe -mwindows -std=f2008 -Wall -Wextra -pedantic
+gfortran win.f90 -o win.exe -mwindows -std=f2008 -Wall -Wextra -pedantic
 ```
 
 Or use the provided `build.bat`.
