@@ -1,244 +1,301 @@
+! Глобальные переменные
+module globals
+  use iso_c_binding, only: c_ptr
+  implicit none
+  type(c_ptr) :: hPanel  ! Дескриптор панели (дочернего окна)
+end module globals
 
+! Типы и константы WinAPI
 module win_types
-  use iso_c_binding
+  use iso_c_binding, only: int => c_int32_t, i_ptr => c_intptr_t, ptr => c_ptr, f_ptr => c_funptr, &
+      nullptr => c_null_ptr, char => c_char
   implicit none
 
-  integer(c_int32_t), parameter :: WS_OVERLAPPEDWINDOW = INT(Z'00CF0000', c_int32_t)
-  integer(c_int32_t), parameter :: SW_SHOW = 5
-  integer(c_int32_t), parameter :: WM_DESTROY = INT(Z'0002', c_int32_t)
-  integer, parameter :: c_wchar_t = selected_int_kind(2)
-  
+  ! Константы для окон и сообщений
+  integer(int), parameter :: WS_OVERLAPPEDWINDOW = 13565952
+  integer(int), parameter :: SW_SHOW             = 5
+  integer(int), parameter :: WM_DESTROY          = 2
+  integer(int), parameter :: WM_SIZE             = 5
+
+
+  ! Структура класса окна WinAPI
   type, bind(C) :: WNDCLASSEX
-    integer(c_int32_t) :: cbSize
-    integer(c_int32_t) :: style
-    type(c_funptr)     :: lpfnWndProc
-    integer(c_int32_t) :: cbClsExtra
-    integer(c_int32_t) :: cbWndExtra
-    type(c_ptr)        :: hInstance
-    type(c_ptr)        :: hIcon
-    type(c_ptr)        :: hCursor
-    type(c_ptr)        :: hbrBackground
-    type(c_ptr)        :: lpszMenuName
-    type(c_ptr)        :: lpszClassName
-    type(c_ptr)        :: hIconSm
+    integer(int)     :: cbSize
+    integer(int)     :: style
+    type(f_ptr)      :: lpfnWndProc
+    integer(int)     :: cbClsExtra
+    integer(int)     :: cbWndExtra
+    type(ptr)        :: hInstance
+    type(ptr)        :: hIcon
+    type(ptr)        :: hCursor
+    type(ptr)        :: hbrBackground
+    type(ptr)        :: lpszMenuName
+    type(ptr)        :: lpszClassName
+    type(ptr)        :: hIconSm
   end type
 
+  ! Структура сообщения WinAPI
   type, bind(C) :: MSG_T
-    type(c_ptr)         :: hwnd
-    integer(c_int32_t)  :: message
-    integer(c_intptr_t) :: wParam
-    integer(c_intptr_t) :: lParam
-    integer(c_int32_t)  :: time
-    type(c_ptr)         :: pt
+    type(ptr)         :: hwnd
+    integer(int)      :: message
+    integer(i_ptr)    :: wParam
+    integer(i_ptr)    :: lParam
+    integer(int)      :: time
+    type(ptr)         :: pt
   end type
 
 end module win_types
 
+! Преобразование строк в UTF-16 (для WinAPI)
 module string_utils
-  use iso_c_binding
-  use win_types, only: c_wchar_t
-  implicit none
-contains
-
- function to_wide_null_terminated(text) result(wide)
-  use iso_c_binding
-  implicit none
-  character(len=*), intent(in) :: text
-  character(kind=c_wchar_t), allocatable :: wide(:)
-  integer :: i, k, n
-
-  n = len_trim(text)
-  allocate(wide(2 * n + 1))
-  wide = char(0, kind=c_wchar_t)
-
-  k = 1
-  do i = 1, n
-    wide(k) = text(i:i)
-    k = k + 1
-    wide(k) = char(0, kind=c_wchar_t)
-    k = k + 1
-  end do
-end function
-
-
-end module string_utils
-
-
-function WndProc(hWnd, Msg, wParam, lParam) bind(C) result(res)
-  use iso_c_binding
   use win_types
   implicit none
-  type(c_ptr), value :: hWnd
-  integer(c_int32_t), value :: Msg
-  integer(c_intptr_t), value :: wParam, lParam
-  integer(c_intptr_t) :: res
+contains
+  ! Преобразует строку в массив символов UTF-16 с завершающим нулём
+  function to_wide_null_terminated(text) result(wide)
+    use iso_c_binding
+    implicit none
+    character(len=*), intent(in) :: text
+    character(kind=char), allocatable, target :: wide(:)
+    integer :: i, k, n
+    n = len_trim(text)
+    allocate(wide(2 * n + 1))
+    wide = achar(0)
+    k = 1
+    do i = 1, n
+      wide(k) = text(i:i)
+      k = k + 1
+      wide(k) = achar(0)
+      k = k + 1
+    end do
+    ! wide(:) теперь содержит UTF-16 строку с завершающим нулём
+  end function
+end module string_utils
 
-  interface
-    function DefWindowProcW(hWnd, Msg, wParam, lParam) bind(C, name="DefWindowProcW")
-      use iso_c_binding
-      type(c_ptr), value :: hWnd
-      integer(c_int32_t), value :: Msg
-      integer(c_intptr_t), value :: wParam, lParam
-      integer(c_intptr_t) :: DefWindowProcW
-    end function
-
-    subroutine PostQuitMessage(nExitCode) bind(C, name="PostQuitMessage")
-      use iso_c_binding
-      integer(c_int32_t), value :: nExitCode
-    end subroutine
-  end interface
-
-  select case (Msg)
-  case (WM_DESTROY)
-    call PostQuitMessage(0)
-    res = 0
-  case default
-    res = DefWindowProcW(hWnd, Msg, wParam, lParam)
-  end select
-end function
-
-program WinMain
+! Общие типы и утилиты
+module standard
   use iso_c_binding
   use win_types
   use string_utils
-  implicit none
+end module standard
 
+! Интерфейсы к функциям WinAPI
+module win_api
   interface
-  
     function RegisterClassExW(lpWndClass) bind(C, name="RegisterClassExW")
-      use iso_c_binding
-      type(c_ptr), value :: lpWndClass
-      integer(c_int32_t) :: RegisterClassExW
+      use standard
+      type(ptr), value :: lpWndClass
+      integer(int) :: RegisterClassExW
     end function
 
     function GetLastError() bind(C, name="GetLastError")
-      use iso_c_binding
-      integer(c_int32_t) :: GetLastError
+      use standard
+      integer(int) :: GetLastError
     end function
 
     function CreateWindowExW(dwExStyle, lpClassName, lpWindowName, dwStyle, x, y, nWidth, nHeight, &
                              hWndParent, hMenu, hInstance, lpParam) bind(C, name="CreateWindowExW")
-      use iso_c_binding
-      integer(c_int32_t), value :: dwExStyle, dwStyle, x, y, nWidth, nHeight
-      type(c_ptr), value :: lpClassName, lpWindowName, hWndParent, hMenu, hInstance, lpParam
-      type(c_ptr) :: CreateWindowExW
+      use standard
+      integer(int), value :: dwExStyle, dwStyle, x, y, nWidth, nHeight
+      type(ptr), value :: lpClassName, lpWindowName, hWndParent, hMenu, hInstance, lpParam
+      type(ptr) :: CreateWindowExW
     end function
 
     subroutine ShowWindow(hWnd, nCmdShow) bind(C, name="ShowWindow")
-      use iso_c_binding
-      type(c_ptr), value :: hWnd
-      integer(c_int32_t), value :: nCmdShow
+      use standard
+      type(ptr), value :: hWnd
+      integer(int), value :: nCmdShow
     end subroutine
 
     subroutine UpdateWindow(hWnd) bind(C, name="UpdateWindow")
-      use iso_c_binding
-      type(c_ptr), value :: hWnd
+      use standard
+      type(ptr), value :: hWnd
     end subroutine
 
     function GetMessageW(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax) bind(C, name="GetMessageW")
-      use iso_c_binding
-      type(c_ptr), value :: lpMsg, hWnd
-      integer(c_int32_t), value :: wMsgFilterMin, wMsgFilterMax
-      integer(c_int32_t) :: GetMessageW
+      use standard
+      type(ptr), value :: lpMsg, hWnd
+      integer(int), value :: wMsgFilterMin, wMsgFilterMax
+      integer(int) :: GetMessageW
     end function
 
     subroutine TranslateMessage(lpMsg) bind(C, name="TranslateMessage")
-      use iso_c_binding
-      type(c_ptr), value :: lpMsg
+      use standard
+      type(ptr), value :: lpMsg
     end subroutine
 
     subroutine DispatchMessageW(lpMsg) bind(C, name="DispatchMessageW")
-      use iso_c_binding
-      type(c_ptr), value :: lpMsg
+      use standard
+      type(ptr), value :: lpMsg
     end subroutine
 
-    function WndProc(hWnd, Msg, wParam, lParam) bind(C)
+    function GetSysColorBrush(nIndex) bind(C, name="GetSysColorBrush")
+      use standard
+      integer(int), value :: nIndex
+      type(ptr) :: GetSysColorBrush
+    end function
+
+    function CreateSolidBrush(color) bind(C, name="CreateSolidBrush")
+      use standard
+      integer(int), value :: color
+      type(ptr) :: CreateSolidBrush
+    end function
+
+    function LoadImageW(hInst, lpszName, uType, cxDesired, cyDesired, fuLoad) bind(C, name="LoadImageW")
+      use standard
+      type(ptr), value :: hInst, lpszName
+      integer(int), value :: uType, cxDesired, cyDesired, fuLoad
+      type(ptr) :: LoadImageW
+    end function
+
+    function DefWindowProcW(hWnd, Msg, wParam, lParam) bind(C, name="DefWindowProcW")
+      use standard
+      type(ptr), value :: hWnd
+      integer(int), value :: Msg
+      integer(i_ptr), value :: wParam, lParam
+      integer(i_ptr) :: DefWindowProcW
+    end function
+
+    subroutine PostQuitMessage(nExitCode) bind(C, name="PostQuitMessage")
+      use standard
+      integer(int), value :: nExitCode
+    end subroutine
+
+    subroutine MoveWindow(hWnd, X, Y, nWidth, nHeight, bRepaint) bind(C, name="MoveWindow")
       use iso_c_binding
       type(c_ptr), value :: hWnd
-      integer(c_int32_t), value :: Msg
-      integer(c_intptr_t), value :: wParam, lParam
-      integer(c_intptr_t) :: WndProc
-    end function
-	
-    function GetSysColorBrush(nIndex) bind(C, name="GetSysColorBrush")
-      use iso_c_binding
-      integer(c_int32_t), value :: nIndex
-      type(c_ptr) :: GetSysColorBrush
-    end function
-	
-    function CreateSolidBrush(color) bind(C, name="CreateSolidBrush")
-      use iso_c_binding
-      integer(c_int32_t), value :: color
-      type(c_ptr) :: CreateSolidBrush
-    end function
-	
-    function LoadImageW(hInst, lpszName, uType, cxDesired, cyDesired, fuLoad) bind(C, name="LoadImageW")
-      use iso_c_binding
-      type(c_ptr), value :: hInst, lpszName
-      integer(c_int32_t), value :: uType, cxDesired, cyDesired, fuLoad
-      type(c_ptr) :: LoadImageW
-    end function
+      integer(c_int32_t), value :: X, Y, nWidth, nHeight
+      logical(c_bool), value :: bRepaint
+    end subroutine
 
   end interface
-  
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  
-  integer(c_int32_t) :: regResult
-  type(WNDCLASSEX), target :: wcx
+contains
+        ! Обработчик сообщений окна (WndProc)
+    function WndProc(hWnd, Msg, wParam, lParam) bind(C) result(res)
+      use standard
+      use globals
+      implicit none
+      type(ptr), value      :: hWnd
+      integer(int), value   :: Msg
+      integer(i_ptr), value :: wParam, lParam
+      integer(i_ptr)        :: res 
+      integer(int)          :: width, height, lp32, panelActualWidth
+
+      select case (Msg)
+      case (WM_DESTROY)
+        ! Сообщение о закрытии окна — завершить цикл сообщений
+        call PostQuitMessage(0)
+        res = 0
+      case (WM_SIZE)
+        ! Сообщение об изменении размера окна
+        lp32 = transfer(lParam, 0_int)
+        width  = iand(lp32, 65535)              ! ширина окна = младшие 16 бит
+        height = iand(ishft(lp32, -16), 65535)  ! высота окна = старшие 16 бит
+        print *, "New size: ", width, "x", height
+
+        ! Вычисляем ширину панели: минимум 80 пикселей или 1/10 ширины окна
+        panelActualWidth = max(80, width / 10)
+
+        ! Изменяем размер панели вместе с окном
+        call MoveWindow(hPanel, 0, 0, panelActualWidth, height, .true._c_bool)
+
+      case default
+        ! Все остальные сообщения — стандартная обработка
+        res = DefWindowProcW(hWnd, Msg, wParam, lParam)
+      end select
+    end function WndProc
+end module win_api
+
+! Главная программа
+program WinMain
+  use win_api
+  use standard
+  use globals
+  implicit none
+
+  ! Общие параметры
+  integer(int) :: regResult
+  type(WNDCLASSEX), target :: wcx, wcxPanel
   type(MSG_T), target :: msg_inst
-  type(c_ptr) :: hwnd, hInstance    
-  !integer(c_int32_t), parameter :: COLOR_BTNFACE = 21  ! тёмно-серый системный цвет
-  integer(c_int32_t) :: darkBrushColor
-  type(c_ptr) :: hBrush  
-  character(kind=c_wchar_t), allocatable, target :: windowTitleW(:), classNameW(:), iconPathW(:), cursorPathW(:)
-  integer(c_int32_t), parameter :: IMAGE_ICON = 1
-  integer(c_int32_t), parameter :: LR_LOADFROMFILE = int(Z'0010', c_int32_t)
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-  cursorPathW = to_wide_null_terminated("cross.ico")
-  iconPathW = to_wide_null_terminated("favicon.ico")
-
-  darkBrushColor = int(Z'00321E0A', c_int32_t)  ! B=0A, G=1E, R=32
-  hBrush = CreateSolidBrush(darkBrushColor)  
-
-  classNameW = to_wide_null_terminated("My window class")
-  windowTitleW = to_wide_null_terminated("Fortran Window")
-
-  hInstance = c_null_ptr
+  type(ptr) :: hwnd, hInstance, hBrush, hPanelBrush
+  integer(int) :: darkBrushColor
+  character(kind=char), allocatable, target :: windowTitleW(:), classNameW(:), panelClassW(:)
+  character(kind=char), allocatable, target :: iconPathW(:), cursorPathW(:)
   
-  wcx%cbSize = c_sizeof(wcx)
-  wcx%style = 0
-  wcx%lpfnWndProc = c_funloc(WndProc)
-  if (.not. c_associated(wcx%lpfnWndProc)) then
-    print *, "WndProc binding failed!"
-  else
-    print *, "WndProc binding it's ok"
-  end if
-  wcx%cbClsExtra = 0
-  wcx%cbWndExtra = 0
-  wcx%hInstance = hInstance
-  wcx%hIcon = LoadImageW(c_null_ptr, c_loc(iconPathW(1)), IMAGE_ICON, 0, 0, LR_LOADFROMFILE)
-  wcx%hCursor = LoadImageW(c_null_ptr, c_loc(cursorPathW(1)), IMAGE_ICON, 0, 0, LR_LOADFROMFILE)
-  !wcx%hbrBackground = GetSysColorBrush(COLOR_BTNFACE)
-  wcx%hbrBackground = hBrush
-  wcx%lpszMenuName = c_null_ptr
-  wcx%lpszClassName = c_loc(classNameW(1))
-  wcx%hIconSm = wcx%hIcon
+  ! Константы для создания окон и ресурсов
+  integer(int), parameter :: IMAGE_ICON = 1
+  integer(int), parameter :: LR_LOADFROMFILE = 16            ! 0x0010
+  integer(int), parameter :: WS_VISIBLE      = 268435456     ! 0x10000000
+  integer(int), parameter :: WS_CHILD        = 1073741824    ! 0x40000000
+  integer(int), parameter :: WS_CHILD_VISIBLE = WS_CHILD + WS_VISIBLE
+  integer(int), parameter :: panelWidth = 800 / 10
 
-  regResult = RegisterClassExW(c_loc(wcx))
-  print *, "[DEBUG] className ptr: ", transfer(c_loc(classNameW(1)), 0_c_intptr_t)
-  print *, "[DEBUG] windowTitle ptr: ", transfer(c_loc(windowTitleW(1)), 0_c_intptr_t)
+  ! Подготовка ресурсов (иконки, курсоры, имена классов)
+  !Выделение памяти с нужным размером
+  allocate(cursorPathW(0)) ! ← аналог "инициализации значением по умолчанию" как в С++
+  cursorPathW    = to_wide_null_terminated("cross.ico")
+  iconPathW      = to_wide_null_terminated("favicon.ico")
+  classNameW     = to_wide_null_terminated("My window class")
+  windowTitleW   = to_wide_null_terminated("Fortran Window")
+  panelClassW    = to_wide_null_terminated("PanelClass")
 
-  hwnd = CreateWindowExW(0, c_loc(classNameW(1)), c_loc(windowTitleW(1)), WS_OVERLAPPEDWINDOW, &
-                        100, 100, 800, 600, c_null_ptr, c_null_ptr, hInstance, c_null_ptr)
+  darkBrushColor = 3284490                 ! 0x00321E0A
+  hBrush         = CreateSolidBrush(darkBrushColor)       ! Кисть для фона главного окна
+  hPanelBrush    = CreateSolidBrush(16744448)             ! Яркая кисть для панели 
+
+  hInstance = nullptr  ! В данном примере не используется
+
+  ! Регистрируем класс главного окна
+  wcx%cbSize             = c_sizeof(wcx)
+  wcx%style              = 0
+  wcx%lpfnWndProc        = c_funloc(WndProc)
+  wcx%cbClsExtra         = 0
+  wcx%cbWndExtra         = 0
+  wcx%hInstance          = hInstance
+  wcx%hIcon              = LoadImageW(nullptr, c_loc(iconPathW(1)), IMAGE_ICON, 0, 0, LR_LOADFROMFILE)
+  wcx%hCursor            = LoadImageW(nullptr, c_loc(cursorPathW(1)), IMAGE_ICON, 0, 0, LR_LOADFROMFILE)
+  wcx%hbrBackground      = hBrush
+  wcx%lpszMenuName       = nullptr
+  wcx%lpszClassName      = c_loc(classNameW(1))
+  wcx%hIconSm            = wcx%hIcon
+  regResult              = RegisterClassExW(c_loc(wcx))
+
+  ! Регистрируем отдельный класс для панели
+  wcxPanel%cbSize        = wcx%cbSize
+  wcxPanel%style         = wcx%style
+  wcxPanel%lpfnWndProc   = wcx%lpfnWndProc
+  wcxPanel%cbClsExtra    = wcx%cbClsExtra
+  wcxPanel%cbWndExtra    = wcx%cbWndExtra
+  wcxPanel%hInstance     = wcx%hInstance
+  wcxPanel%hIcon         = wcx%hIcon
+  wcxPanel%hCursor       = wcx%hCursor
+  wcxPanel%hbrBackground = wcx%hbrBackground
+  wcxPanel%lpszMenuName  = wcx%lpszMenuName
+  wcxPanel%lpszClassName = wcx%lpszClassName
+  wcxPanel%hIconSm       = wcx%hIconSm
+
+  wcxPanel%hbrBackground = hPanelBrush
+  wcxPanel%lpszClassName = c_loc(panelClassW(1))
+  regResult              = RegisterClassExW(c_loc(wcxPanel))
+
+  ! Сначала создаём главное окно
+  hwnd = CreateWindowExW(0, c_loc(classNameW(1)), c_loc(windowTitleW(1)), &
+                         WS_OVERLAPPEDWINDOW, 100, 100, 800, 600, nullptr, nullptr, hInstance, nullptr)
 
   call ShowWindow(hwnd, SW_SHOW)
   call UpdateWindow(hwnd)
 
-  do while (GetMessageW(c_loc(msg_inst), c_null_ptr, 0, 0) > 0)
+  ! Затем создаём панель как дочернее окно
+  hPanel = CreateWindowExW(0, c_loc(panelClassW(1)), nullptr, &
+           WS_CHILD_VISIBLE, 0, 0, panelWidth, 600, hwnd, nullptr, hInstance, nullptr)
+
+  call ShowWindow(hPanel, SW_SHOW)
+  call UpdateWindow(hPanel)
+
+  ! Основной цикл обработки сообщений Windows
+  do while (GetMessageW(c_loc(msg_inst), nullptr, 0, 0) > 0)
     call TranslateMessage(c_loc(msg_inst))
     call DispatchMessageW(c_loc(msg_inst))
   end do
-  
-end program
 
+end program
