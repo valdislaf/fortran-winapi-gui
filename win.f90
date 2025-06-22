@@ -1,10 +1,3 @@
-! Глобальные переменные
-module globals
-  use iso_c_binding, only: c_ptr
-  implicit none
-  type(c_ptr) :: hPanel  ! Дескриптор панели (дочернего окна)
-end module globals
-
 ! Типы и константы WinAPI
 module win_types
   use iso_c_binding, only: int => c_int32_t, i_ptr => c_intptr_t, ptr => c_ptr, f_ptr => c_funptr, &
@@ -54,6 +47,11 @@ module win_types
     integer(i_ptr)    :: lParam
     integer(int)      :: time
     type(ptr)         :: pt
+  end type
+
+  !Создаем структуру для передачи hPanel
+  type, bind(C) :: AppData
+    type(ptr) :: hPanel
   end type
 
 end module win_types
@@ -189,26 +187,46 @@ module win_api
       logical(c_bool), value :: bRepaint
     end subroutine
     
+    function GetWindowLongPtrW(hWnd, nIndex) bind(C, name="GetWindowLongPtrW")
+      use standard
+      type(ptr), value :: hWnd
+      integer(int), value :: nIndex
+      integer(i_ptr) :: GetWindowLongPtrW
+    end function
+
+    subroutine SetWindowLongPtrW(hWnd, nIndex, dwNewLong) bind(C, name="SetWindowLongPtrW")
+      use standard
+      type(ptr), value :: hWnd
+      integer(int), value :: nIndex
+      integer(i_ptr), value :: dwNewLong
+    end subroutine
+
   end interface
 contains
     ! Обработчик сообщений окна (WndProc)
-    function WndProc(hWnd, Msg, wParam, lParam) bind(C) result(res)
+    function WndProc(hWnd, Msg, wParam, lParam) bind(C) result(res)      
       use standard
-      use globals
       implicit none
+      type(AppData), pointer :: appDataInst
       type(ptr), value      :: hWnd
       integer(int), value   :: Msg
       integer(i_ptr), value :: wParam, lParam
       integer(i_ptr)        :: res 
       integer(int)          :: width, height, lp32, panelActualWidth
-
+      type(c_ptr) :: appDataPtr    
+      integer(i_ptr) :: userData
+      
       select case (Msg)
+      case (1)  ! WM_CREATE
+        appDataPtr = transfer(lParam, c_null_ptr)
+        call SetWindowLongPtrW(hWnd, -21, transfer(appDataPtr, 0_i_ptr))
+        res = 0
       case (WM_DESTROY)
         ! Сообщение о закрытии окна — завершить цикл сообщений
         call PostQuitMessage(0)
         res = 0
-      case (WM_SIZE)
-        ! Сообщение об изменении размера окна
+      case (WM_SIZE)       
+                ! Сообщение об изменении размера окна
         lp32 = transfer(lParam, 0_int)
         width  = iand(lp32, 65535)              ! ширина окна = младшие 16 бит
         height = iand(ishft(lp32, -16), 65535)  ! высота окна = старшие 16 бит
@@ -216,10 +234,13 @@ contains
 
         ! Вычисляем ширину панели: минимум 80 пикселей или 1/10 ширины окна
         panelActualWidth = max(80, width / 10)
+        userData = GetWindowLongPtrW(hWnd, -21)
+        appDataPtr = transfer(userData, appDataPtr)
+        call c_f_pointer(appDataPtr, appDataInst)
 
-        ! Изменяем размер панели вместе с окном
-        call MoveWindow(hPanel, 0, 0, panelActualWidth, height, .true._c_bool)
-        call UpdateWindow(hPanel)
+        call MoveWindow(appDataInst%hPanel, 0, 0, panelActualWidth, height, .true._c_bool)
+        call UpdateWindow(appDataInst%hPanel)
+
       case default
         ! Все остальные сообщения — стандартная обработка
         res = DefWindowProcW(hWnd, Msg, wParam, lParam)
@@ -228,6 +249,7 @@ contains
     
     function MakeARGB(A, R, G, B) result(color)
       use iso_c_binding
+      use win_types
       implicit none
       integer(c_int32_t), intent(in) :: A, R, G, B
       integer(c_int32_t) :: color
@@ -240,7 +262,8 @@ end module win_api
 program WinMain
   use win_api
   use standard
-  use globals
+  use win_types
+
   implicit none
 
   ! Общие параметры
@@ -256,6 +279,10 @@ program WinMain
   integer(int), parameter :: IMAGE_ICON = 1
   integer(int), parameter :: LR_LOADFROMFILE = 16            ! 0x0010
   integer(int), parameter :: panelWidth = 800 / 10
+  
+  ! для объекта hPanel
+  type(AppData), target :: appDataInst
+  type(c_ptr) :: appDataPtr
   
   ! Переменные для кнопки
   type(ptr) :: hButton
@@ -318,17 +345,25 @@ program WinMain
   regResult              = RegisterClassExW(c_loc(wcxPanel))
 
   ! Сначала создаём главное окно
+  ! Перед созданием окна
+  appDataInst%hPanel = c_null_ptr
+  appDataPtr = c_loc(appDataInst)
+
+! В CreateWindowExW — передаем appDataPtr в lpParam:
   hwnd = CreateWindowExW(0, c_loc(classNameW(1)), c_loc(windowTitleW(1)), &
-                         WS_OVERLAPPEDWINDOW, 100, 100, 800, 600, nullptr, nullptr, hInstance, nullptr)
+           WS_OVERLAPPEDWINDOW, 100, 100, 800, 600, nullptr, nullptr, hInstance, appDataPtr)
 
   ! Затем создаём панель как дочернее окно
-  hPanel = CreateWindowExW(0, c_loc(panelClassW(1)), nullptr, &
-           WS_CHILD_VISIBLE, 0, 0, panelWidth, 600, hwnd, nullptr, hInstance, nullptr)  
+  appDataInst%hPanel = CreateWindowExW(0, c_loc(panelClassW(1)), nullptr, &
+         WS_CHILD_VISIBLE, 0, 0, panelWidth, 600, hwnd, nullptr, hInstance, nullptr)
   
-! Затем создаём кнопку
+  ! Перезаписываем указатель после создания панели:
+  call SetWindowLongPtrW(hwnd, -21, transfer(c_loc(appDataInst), 0_i_ptr))
+  
+  ! Затем создаём кнопку
   hButton = CreateWindowExW(0, c_loc(classButtonW(1)), &
              c_loc(buttonTextW(1)), WS_CHILD_VISIBLE + BS_DEFPUSHBUTTON, &
-             2, 2, panelWidth-4, 26, hPanel, hMenuAsPtr, hInstance, nullptr)
+             2, 2, panelWidth-4, 26, appDataInst%hPanel, hMenuAsPtr, hInstance, nullptr)
 
   
   if (.not. c_associated(hButton)) then
@@ -340,8 +375,8 @@ program WinMain
   
   call ShowWindow(hwnd, SW_SHOW)
   call UpdateWindow(hwnd)
-  call ShowWindow(hPanel, SW_SHOW)
-  call UpdateWindow(hPanel)
+  call ShowWindow(appDataInst%hPanel, SW_SHOW)
+  call UpdateWindow(appDataInst%hPanel)
   call ShowWindow(hButton, SW_SHOW)
   call UpdateWindow(hButton)
   
@@ -351,4 +386,4 @@ program WinMain
     call DispatchMessageW(c_loc(msg_inst))
   end do
 
-end program
+end program WinMain
