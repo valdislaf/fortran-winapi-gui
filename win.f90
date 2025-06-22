@@ -1,3 +1,46 @@
+module gui_helpers
+  use win_api
+  use standard
+  implicit none
+contains
+
+  subroutine create_main_window(hwnd, hInstance, appDataPtr, hBrush, wcx, regResult, &
+                               classNameW, windowTitleW, iconPathW, cursorPathW)
+    type(ptr), intent(out)        :: hwnd
+    type(ptr), intent(in)         :: hInstance
+    type(c_ptr), intent(in)       :: appDataPtr
+    type(ptr), intent(in)         :: hBrush
+    type(WNDCLASSEX), intent(out), target :: wcx
+    character(kind=char), intent(in), target :: classNameW(:), windowTitleW(:)
+    integer(int), intent(out)     :: regResult
+    character(kind=char), intent(in), target :: iconPathW(:), cursorPathW(:)
+
+
+    wcx%cbSize             = c_sizeof(wcx)
+    wcx%style              = 0
+    wcx%lpfnWndProc        = c_funloc(WndProc)
+    wcx%cbClsExtra         = 0
+    wcx%cbWndExtra         = 0
+    wcx%hInstance          = hInstance
+    wcx%hIcon              = LoadImageW(nullptr, c_loc(iconPathW(1)), IMAGE_ICON, 0, 0, LR_LOADFROMFILE)
+    wcx%hCursor            = LoadImageW(nullptr, c_loc(cursorPathW(1)), IMAGE_ICON, 0, 0, LR_LOADFROMFILE)
+    wcx%hbrBackground      = hBrush
+    wcx%lpszMenuName       = nullptr
+    wcx%lpszClassName      = c_loc(classNameW(1))
+    wcx%hIconSm            = wcx%hIcon
+
+    regResult = RegisterClassExW(c_loc(wcx))
+
+    if (regResult == 0 .and. GetLastError() /= 1410) then
+      print *, "0 Ошибка регистрации основного класса, код:", GetLastError()
+    end if
+
+    hwnd = CreateWindowExW(0, c_loc(classNameW(1)), c_loc(windowTitleW(1)), &
+             WS_OVERLAPPEDWINDOW, 100, 100, 800, 600, nullptr, nullptr, hInstance, appDataPtr)
+  end subroutine create_main_window
+
+end module gui_helpers
+    
 ! Типы и константы WinAPI
 module win_types
   use iso_c_binding, only: int => c_int32_t, i_ptr => c_intptr_t, ptr => c_ptr, f_ptr => c_funptr, &
@@ -10,6 +53,8 @@ module win_types
   integer(int), parameter :: WS_CHILD            = 1073741824   ! 0x40000000
   integer(int), parameter :: WS_CHILD_VISIBLE    = WS_CHILD + WS_VISIBLE
   integer(int), parameter :: SW_SHOW             = 5
+  integer(int), parameter :: IMAGE_ICON = 1
+  integer(int), parameter :: LR_LOADFROMFILE = 16
 
   ! Сообщения Windows
   integer(int), parameter :: WM_DESTROY          = 2
@@ -263,127 +308,77 @@ program WinMain
   use win_api
   use standard
   use win_types
-
+  use gui_helpers
   implicit none
 
-  ! Общие параметры
+  ! --- Переменные ---
   integer(int) :: regResult
   type(WNDCLASSEX), target :: wcx, wcxPanel
   type(MSG_T), target :: msg_inst
   type(ptr) :: hwnd, hInstance, hBrush, hPanelBrush
-  integer(int) :: darkBrushColor
-  character(kind=char), allocatable, target :: windowTitleW(:), classNameW(:), panelClassW(:)
-  character(kind=char), allocatable, target :: iconPathW(:), cursorPathW(:)
-  
-  ! Константы для создания окон и ресурсов
-  integer(int), parameter :: IMAGE_ICON = 1
-  integer(int), parameter :: LR_LOADFROMFILE = 16            ! 0x0010
-  integer(int), parameter :: panelWidth = 800 / 10
-  
-  ! для объекта hPanel
   type(AppData), target :: appDataInst
   type(c_ptr) :: appDataPtr
-  
-  ! Переменные для кнопки
   type(ptr) :: hButton
-  character(kind=char), allocatable, target :: buttonTextW(:)
+  character(kind=char), allocatable, target :: windowTitleW(:), classNameW(:), panelClassW(:), buttonTextW(:), classButtonW(:)
   type(c_ptr) :: hMenuAsPtr
   integer(i_ptr) :: id_temp
-  character(kind=c_char), allocatable, target :: classButtonW(:)
-  
-  ! Подготовка ресурсов (иконки, курсоры, имена классов)
-  !Выделение памяти с нужным размером
+  integer(int), parameter :: panelWidth = 800 / 10
+  character(kind=char), allocatable, target :: iconPathW(:), cursorPathW(:)
+  ! --- Строки ---
   allocate(cursorPathW(0)) ! ← аналог "инициализации значением по умолчанию" как в С++
   cursorPathW    = to_wide_null_terminated("cross.ico")
   iconPathW      = to_wide_null_terminated("favicon.ico")
   classNameW     = to_wide_null_terminated("My window class")
   windowTitleW   = to_wide_null_terminated("Fortran Window")
   panelClassW    = to_wide_null_terminated("PanelClass")
-  buttonTextW    = to_wide_null_terminated("Click me")  
+  buttonTextW    = to_wide_null_terminated("Click me")
   classButtonW   = to_wide_null_terminated("Button")
 
-  id_temp = ID_BUTTON1
-  hMenuAsPtr = transfer(id_temp, hMenuAsPtr)
-  
-  darkBrushColor = MakeARGB(0, 50, 30, 10)                  ! 0x00321E0A
-  hBrush         = CreateSolidBrush(darkBrushColor)       ! кисть для фона главного окна
-  hPanelBrush    = CreateSolidBrush(MakeARGB(0, 40, 20, 0))             ! кисть для панели 
-
-  hInstance = nullptr  ! В данном примере не используется
-
-  ! Регистрируем класс главного окна
-  wcx%cbSize             = c_sizeof(wcx)
-  wcx%style              = 0
-  wcx%lpfnWndProc        = c_funloc(WndProc)
-  wcx%cbClsExtra         = 0
-  wcx%cbWndExtra         = 0
-  wcx%hInstance          = hInstance
-  wcx%hIcon              = LoadImageW(nullptr, c_loc(iconPathW(1)), IMAGE_ICON, 0, 0, LR_LOADFROMFILE)
-  wcx%hCursor            = LoadImageW(nullptr, c_loc(cursorPathW(1)), IMAGE_ICON, 0, 0, LR_LOADFROMFILE)
-  wcx%hbrBackground      = hBrush
-  wcx%lpszMenuName       = nullptr
-  wcx%lpszClassName      = c_loc(classNameW(1))
-  wcx%hIconSm            = wcx%hIcon
-  regResult              = RegisterClassExW(c_loc(wcx))
-
-  ! Регистрируем отдельный класс для панели
-  wcxPanel%cbSize        = wcx%cbSize
-  wcxPanel%style         = wcx%style
-  wcxPanel%lpfnWndProc   = wcx%lpfnWndProc
-  wcxPanel%cbClsExtra    = wcx%cbClsExtra
-  wcxPanel%cbWndExtra    = wcx%cbWndExtra
-  wcxPanel%hInstance     = wcx%hInstance
-  wcxPanel%hIcon         = wcx%hIcon
-  wcxPanel%hCursor       = wcx%hCursor
-  wcxPanel%hbrBackground = wcx%hbrBackground
-  wcxPanel%lpszMenuName  = wcx%lpszMenuName
-  wcxPanel%lpszClassName = wcx%lpszClassName
-  wcxPanel%hIconSm       = wcx%hIconSm
-
-  wcxPanel%hbrBackground = hPanelBrush
-  wcxPanel%lpszClassName = c_loc(panelClassW(1))
-  regResult              = RegisterClassExW(c_loc(wcxPanel))
-
-  ! Сначала создаём главное окно
-  ! Перед созданием окна
+  ! --- Прочее ---
+  hInstance = nullptr
   appDataInst%hPanel = c_null_ptr
   appDataPtr = c_loc(appDataInst)
+  hBrush = CreateSolidBrush(MakeARGB(0, 50, 30, 10))
+  hPanelBrush = CreateSolidBrush(MakeARGB(0, 40, 20, 0))
 
-! В CreateWindowExW — передаем appDataPtr в lpParam:
-  hwnd = CreateWindowExW(0, c_loc(classNameW(1)), c_loc(windowTitleW(1)), &
-           WS_OVERLAPPEDWINDOW, 100, 100, 800, 600, nullptr, nullptr, hInstance, appDataPtr)
+  ! --- Главное окно ---
+  call create_main_window(hwnd, hInstance, appDataPtr, hBrush, wcx, regResult, &
+                        classNameW, windowTitleW, iconPathW, cursorPathW)
 
-  ! Затем создаём панель как дочернее окно
-  appDataInst%hPanel = CreateWindowExW(0, c_loc(panelClassW(1)), nullptr, &
-         WS_CHILD_VISIBLE, 0, 0, panelWidth, 600, hwnd, nullptr, hInstance, nullptr)
-  
-  ! Перезаписываем указатель после создания панели:
-  call SetWindowLongPtrW(hwnd, -21, transfer(c_loc(appDataInst), 0_i_ptr))
-  
-  ! Затем создаём кнопку
-  hButton = CreateWindowExW(0, c_loc(classButtonW(1)), &
-             c_loc(buttonTextW(1)), WS_CHILD_VISIBLE + BS_DEFPUSHBUTTON, &
-             2, 2, panelWidth-4, 26, appDataInst%hPanel, hMenuAsPtr, hInstance, nullptr)
-
-  
-  if (.not. c_associated(hButton)) then
-      print *, "Кнопка не создана! Ошибка:", GetLastError()
-  else
-      print *, "Кнопка успешно создана!"
-  end if
-
-  
   call ShowWindow(hwnd, SW_SHOW)
   call UpdateWindow(hwnd)
+
+  ! --- Панель ---
+  wcxPanel = wcx
+  wcxPanel%lpfnWndProc = c_funloc(WndProc)
+  wcxPanel%hbrBackground = hPanelBrush
+  wcxPanel%lpszClassName = c_loc(panelClassW(1))
+  regResult = RegisterClassExW(c_loc(wcxPanel))
+  if (regResult == 0 .and. GetLastError() /= 1410) then
+    print *, "Ошибка регистрации класса панели, код:", GetLastError()
+  end if
+
+  appDataInst%hPanel = CreateWindowExW(0, c_loc(panelClassW(1)), nullptr, &
+       WS_CHILD_VISIBLE, 0, 0, panelWidth, 600, hwnd, nullptr, hInstance, nullptr)
+  call SetWindowLongPtrW(hwnd, -21, transfer(c_loc(appDataInst), 0_i_ptr))
+
+  ! --- Кнопка ---
+  id_temp = ID_BUTTON1
+  hMenuAsPtr = transfer(id_temp, hMenuAsPtr)
+  hButton = CreateWindowExW(0, c_loc(classButtonW(1)), c_loc(buttonTextW(1)), &
+       WS_CHILD_VISIBLE + BS_DEFPUSHBUTTON, 2, 2, panelWidth-4, 26, appDataInst%hPanel, hMenuAsPtr, hInstance, nullptr)
+  if (.not. c_associated(hButton)) then
+    print *, "Кнопка не создана! Ошибка:", GetLastError()
+  end if
+
   call ShowWindow(appDataInst%hPanel, SW_SHOW)
   call UpdateWindow(appDataInst%hPanel)
   call ShowWindow(hButton, SW_SHOW)
   call UpdateWindow(hButton)
-  
-  ! Основной цикл обработки сообщений Windows
+
+  ! --- Цикл сообщений ---
   do while (GetMessageW(c_loc(msg_inst), nullptr, 0, 0) > 0)
     call TranslateMessage(c_loc(msg_inst))
     call DispatchMessageW(c_loc(msg_inst))
   end do
-
 end program WinMain
