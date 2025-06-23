@@ -1,3 +1,7 @@
-gfortran win.f90 -o win.exe  -luser32 -lgdi32
+del *.exe
+gfortran -c win_types.f90 string_utils.f90 standard.f90 win_api.f90 gui_helpers.f90
+gfortran -o win.exe win.f90 win_types.o string_utils.o standard.o win_api.o gui_helpers.o -mwindows -luser32 -lgdi32
+del *.o
+del *.mod
 win
 pause
