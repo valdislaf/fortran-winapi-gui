@@ -1,4 +1,4 @@
-module gui_helpers
+﻿module gui_helpers
   use win_api
   use win_types
   use standard
