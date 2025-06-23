@@ -4,40 +4,77 @@ module gui_helpers
   implicit none
 contains
 
-  subroutine create_main_window(hwnd, hInstance, appDataPtr, hBrush, wcx, regResult, &
-                               classNameW, windowTitleW, iconPathW, cursorPathW)
-    type(ptr), intent(out)        :: hwnd
-    type(ptr), intent(in)         :: hInstance
-    type(c_ptr), intent(in)       :: appDataPtr
-    type(ptr), intent(in)         :: hBrush
-    type(WNDCLASSEX), intent(out), target :: wcx
-    character(kind=char), intent(in), target :: classNameW(:), windowTitleW(:)
-    integer(int), intent(out)     :: regResult
-    character(kind=char), intent(in), target :: iconPathW(:), cursorPathW(:)
+    subroutine create_main_window(hwnd, hInstance, appDataPtr, hBrush, wcx, regResult, &
+                                classNameW, windowTitleW, iconPathW, cursorPathW)
+        type(ptr), intent(out)        :: hwnd
+        type(ptr), intent(in)         :: hInstance
+        type(c_ptr), intent(in)       :: appDataPtr
+        type(ptr), intent(in)         :: hBrush
+        type(WNDCLASSEX), intent(out), target :: wcx
+        character(kind=char), intent(in), target :: classNameW(:), windowTitleW(:)
+        integer(int), intent(out)     :: regResult
+        character(kind=char), intent(in), target :: iconPathW(:), cursorPathW(:)
 
 
-    wcx%cbSize             = c_sizeof(wcx)
-    wcx%style              = 0
-    wcx%lpfnWndProc        = c_funloc(WndProc)
-    wcx%cbClsExtra         = 0
-    wcx%cbWndExtra         = 0
-    wcx%hInstance          = hInstance
-    wcx%hIcon              = LoadImageW(nullptr, c_loc(iconPathW(1)), IMAGE_ICON, 0, 0, LR_LOADFROMFILE)
-    wcx%hCursor            = LoadImageW(nullptr, c_loc(cursorPathW(1)), IMAGE_ICON, 0, 0, LR_LOADFROMFILE)
-    wcx%hbrBackground      = hBrush
-    wcx%lpszMenuName       = nullptr
-    wcx%lpszClassName      = c_loc(classNameW(1))
-    wcx%hIconSm            = wcx%hIcon
+        wcx%cbSize             = c_sizeof(wcx)
+        wcx%style              = 0
+        wcx%lpfnWndProc        = c_funloc(WndProc)
+        wcx%cbClsExtra         = 0
+        wcx%cbWndExtra         = 0
+        wcx%hInstance          = hInstance
+        wcx%hIcon              = LoadImageW(nullptr, c_loc(iconPathW(1)), IMAGE_ICON, 0, 0, LR_LOADFROMFILE)
+        wcx%hCursor            = LoadImageW(nullptr, c_loc(cursorPathW(1)), IMAGE_ICON, 0, 0, LR_LOADFROMFILE)
+        wcx%hbrBackground      = hBrush
+        wcx%lpszMenuName       = nullptr
+        wcx%lpszClassName      = c_loc(classNameW(1))
+        wcx%hIconSm            = wcx%hIcon
 
-    regResult = RegisterClassExW(c_loc(wcx))
+        regResult = RegisterClassExW(c_loc(wcx))
 
-    if (regResult == 0 .and. GetLastError() /= 1410) then
-      print *, "Error registering the main class, code:", GetLastError()
-    end if
+        if (regResult /= 0) then
+            print *, "Main class registered successfully."
+        else
+            print *, "Error registering the main class, code:", GetLastError()
+        end if
 
-    hwnd = CreateWindowExW(0, c_loc(classNameW(1)), c_loc(windowTitleW(1)), &
-             WS_OVERLAPPEDWINDOW, 100, 100, 800, 600, nullptr, nullptr, hInstance, appDataPtr)
-  end subroutine create_main_window
+        hwnd = CreateWindowExW(0, c_loc(classNameW(1)), c_loc(windowTitleW(1)), &
+                    WS_OVERLAPPEDWINDOW, 100, 100, 800, 600, nullptr, nullptr, hInstance, appDataPtr)
+    end subroutine create_main_window
+
+    subroutine create_panel_window(hPanel, hwndParent, hInstance, hBrush, wcxPanel, regResult, panelClassW)
+        type(ptr), intent(out)        :: hPanel
+        type(ptr), intent(in)         :: hwndParent
+        type(ptr), intent(in)         :: hInstance
+        type(ptr), intent(in)         :: hBrush
+        type(WNDCLASSEX), intent(out), target :: wcxPanel
+        integer(int), intent(out)     :: regResult
+        character(kind=char), intent(in), target :: panelClassW(:)
+
+        integer(int), parameter :: panelWidth = 800 / 10
+
+        wcxPanel%cbSize             = c_sizeof(wcxPanel)
+        wcxPanel%style              = 0
+        wcxPanel%lpfnWndProc        = c_funloc(WndProc)
+        wcxPanel%cbClsExtra         = 0
+        wcxPanel%cbWndExtra         = 0
+        wcxPanel%hInstance          = hInstance
+        wcxPanel%hIcon              = nullptr
+        wcxPanel%hCursor            = nullptr
+        wcxPanel%hbrBackground      = hBrush
+        wcxPanel%lpszMenuName       = nullptr
+        wcxPanel%lpszClassName      = c_loc(panelClassW(1))
+        wcxPanel%hIconSm            = nullptr
+
+        regResult = RegisterClassExW(c_loc(wcxPanel))
+        if (regResult /= 0) then
+        print *, "Panel class registered successfully."
+        else
+        print *, "Error registering the panel class, code:", GetLastError()
+        end if
+
+        hPanel = CreateWindowExW(0, c_loc(panelClassW(1)), nullptr, &
+                WS_CHILD_VISIBLE, 0, 0, panelWidth, 600, hwndParent, nullptr, hInstance, nullptr)
+    end subroutine create_panel_window
 
 end module gui_helpers
     
@@ -349,18 +386,10 @@ program WinMain
   call UpdateWindow(hwnd)
 
   ! --- Панель ---
-  wcxPanel = wcx
-  wcxPanel%lpfnWndProc = c_funloc(WndProc)
-  wcxPanel%hbrBackground = hPanelBrush
-  wcxPanel%lpszClassName = c_loc(panelClassW(1))
-  regResult = RegisterClassExW(c_loc(wcxPanel))
-  if (regResult == 0 .and. GetLastError() /= 1410) then
-    print *, "Panel class registration error, code:", GetLastError()
-  end if
-
-  appDataInst%hPanel = CreateWindowExW(0, c_loc(panelClassW(1)), nullptr, &
-       WS_CHILD_VISIBLE, 0, 0, panelWidth, 600, hwnd, nullptr, hInstance, nullptr)
+  call create_panel_window(appDataInst%hPanel, hwnd, hInstance, hPanelBrush, wcxPanel, regResult, panelClassW)
   call SetWindowLongPtrW(hwnd, -21, transfer(c_loc(appDataInst), 0_i_ptr))
+  call ShowWindow(appDataInst%hPanel, SW_SHOW)
+  call UpdateWindow(appDataInst%hPanel)  
 
   ! --- Кнопка ---
   id_temp = ID_BUTTON1
@@ -371,8 +400,7 @@ program WinMain
     print *, "The button has not been created! Mistake:", GetLastError()
   end if
 
-  call ShowWindow(appDataInst%hPanel, SW_SHOW)
-  call UpdateWindow(appDataInst%hPanel)
+ 
   call ShowWindow(hButton, SW_SHOW)
   call UpdateWindow(hButton)
 
