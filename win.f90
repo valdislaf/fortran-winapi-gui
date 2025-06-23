@@ -32,7 +32,7 @@ contains
     regResult = RegisterClassExW(c_loc(wcx))
 
     if (regResult == 0 .and. GetLastError() /= 1410) then
-      print *, "0 Ошибка регистрации основного класса, код:", GetLastError()
+      print *, "Error registering the main class, code:", GetLastError()
     end if
 
     hwnd = CreateWindowExW(0, c_loc(classNameW(1)), c_loc(windowTitleW(1)), &
@@ -355,7 +355,7 @@ program WinMain
   wcxPanel%lpszClassName = c_loc(panelClassW(1))
   regResult = RegisterClassExW(c_loc(wcxPanel))
   if (regResult == 0 .and. GetLastError() /= 1410) then
-    print *, "Ошибка регистрации класса панели, код:", GetLastError()
+    print *, "Panel class registration error, code:", GetLastError()
   end if
 
   appDataInst%hPanel = CreateWindowExW(0, c_loc(panelClassW(1)), nullptr, &
@@ -368,7 +368,7 @@ program WinMain
   hButton = CreateWindowExW(0, c_loc(classButtonW(1)), c_loc(buttonTextW(1)), &
        WS_CHILD_VISIBLE + BS_DEFPUSHBUTTON, 2, 2, panelWidth-4, 26, appDataInst%hPanel, hMenuAsPtr, hInstance, nullptr)
   if (.not. c_associated(hButton)) then
-    print *, "Кнопка не создана! Ошибка:", GetLastError()
+    print *, "The button has not been created! Mistake:", GetLastError()
   end if
 
   call ShowWindow(appDataInst%hPanel, SW_SHOW)
