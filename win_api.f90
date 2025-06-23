@@ -1,4 +1,4 @@
-! Интерфейсы к функциям WinAPI
+! пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ WinAPI
 module win_api
   interface
     function RegisterClassExW(lpWndClass) bind(C, name="RegisterClassExW")
@@ -103,7 +103,7 @@ module win_api
 
   end interface
 contains
-    ! Обработчик сообщений окна (WndProc)
+    ! пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ (WndProc)
     function WndProc(hWnd, Msg, wParam, lParam) bind(C) result(res)      
       use standard
       implicit none
@@ -122,17 +122,17 @@ contains
         call SetWindowLongPtrW(hWnd, -21, transfer(appDataPtr, 0_i_ptr))
         res = 0
       case (WM_DESTROY)
-        ! Сообщение о закрытии окна — завершить цикл сообщений
+        ! пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         call PostQuitMessage(0)
         res = 0
       case (WM_SIZE)       
-                ! Сообщение об изменении размера окна
+                ! пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
         lp32 = transfer(lParam, 0_int)
-        width  = iand(lp32, 65535)              ! ширина окна = младшие 16 бит
-        height = iand(ishft(lp32, -16), 65535)  ! высота окна = старшие 16 бит
+        width  = iand(lp32, 65535)              ! пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ = пїЅпїЅпїЅпїЅпїЅпїЅпїЅ 16 пїЅпїЅпїЅ
+        height = iand(ishft(lp32, -16), 65535)  ! пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ = пїЅпїЅпїЅпїЅпїЅпїЅпїЅ 16 пїЅпїЅпїЅ
         print *, "New size: ", width, "x", height
 
-        ! Вычисляем ширину панели: минимум 80 пикселей или 1/10 ширины окна
+        ! пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ: пїЅпїЅпїЅпїЅпїЅпїЅпїЅ 80 пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ 1/10 пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
         panelActualWidth = max(80, width / 10)
         userData = GetWindowLongPtrW(hWnd, -21)
         appDataPtr = transfer(userData, appDataPtr)
@@ -142,7 +142,7 @@ contains
         call UpdateWindow(appDataInst%hPanel)
 
       case default
-        ! Все остальные сообщения — стандартная обработка
+        ! пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         res = DefWindowProcW(hWnd, Msg, wParam, lParam)
       end select
     end function WndProc
