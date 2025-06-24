@@ -1,4 +1,4 @@
-! ���������� � �������� WinAPI
+! Интерфейсы к функциям WinAPI
 module win_api
   interface
     function RegisterClassExW(lpWndClass) bind(C, name="RegisterClassExW")
@@ -103,7 +103,7 @@ module win_api
 
   end interface
 contains
-    ! ���������� ��������� ���� (WndProc)
+    ! Обработчик сообщений окна (WndProc)
     function WndProc(hWnd, Msg, wParam, lParam) bind(C) result(res)      
       use standard
       implicit none
@@ -122,17 +122,17 @@ contains
         call SetWindowLongPtrW(hWnd, -21, transfer(appDataPtr, 0_i_ptr))
         res = 0
       case (WM_DESTROY)
-        ! ��������� � �������� ���� � ��������� ���� ���������
+        ! Сообщение о закрытии окна — завершить цикл сообщений
         call PostQuitMessage(0)
         res = 0
       case (WM_SIZE)       
-                ! ��������� �� ��������� ������� ����
+                ! Сообщение об изменении размера окна
         lp32 = transfer(lParam, 0_int)
-        width  = iand(lp32, 65535)              ! ������ ���� = ������� 16 ���
-        height = iand(ishft(lp32, -16), 65535)  ! ������ ���� = ������� 16 ���
+        width  = iand(lp32, 65535)              ! ширина окна = младшие 16 бит
+        height = iand(ishft(lp32, -16), 65535)  ! высота окна = старшие 16 бит
         print *, "New size: ", width, "x", height
 
-        ! ��������� ������ ������: ������� 80 �������� ��� 1/10 ������ ����
+        ! Вычисляем ширину панели: минимум 80 пикселей или 1/10 ширины окна
         panelActualWidth = max(80, width / 10)
         userData = GetWindowLongPtrW(hWnd, -21)
         appDataPtr = transfer(userData, appDataPtr)
@@ -142,7 +142,7 @@ contains
         call UpdateWindow(appDataInst%hPanel)
 
       case default
-        ! ��� ��������� ��������� � ����������� ���������
+        ! Все остальные сообщения — стандартная обработка
         res = DefWindowProcW(hWnd, Msg, wParam, lParam)
       end select
     end function WndProc
