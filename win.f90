@@ -15,6 +15,7 @@ program WinMain
   character(kind=char), allocatable, target :: windowTitleW(:), classNameW(:), panelClassW(:), buttonTextW(:), classButtonW(:)    
   character(kind=char), allocatable, target :: iconPathW(:), cursorPathW(:)
   integer(int), parameter :: panelWidth = 800 / 10
+  
   ! --- Строки ---
   allocate(cursorPathW(0)) ! ← аналог "инициализации значением по умолчанию" как в С++
   cursorPathW    = to_wide_null_terminated("cross.ico")

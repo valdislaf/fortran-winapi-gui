@@ -1,11 +1,11 @@
-! Преобразование строк в UTF-16 (для WinAPI)
+! пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ UTF-16 (пїЅпїЅпїЅ WinAPI)
 module string_utils
   use win_types
   implicit none
 
 contains
 
-  ! Преобразует строку в массив символов UTF-16 с завершающим нулём
+  ! пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ UTF-16 пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
  function to_wide_null_terminated(text) result(wide)
  
   use iso_c_binding, only: c_char, c_null_char
@@ -15,7 +15,7 @@ contains
       integer :: i, k, n
 
       n = len_trim(text)
-      allocate(wide(2 * n + 2))  ! на 1 WCHAR больше (== 2 char) для завершающего \0
+      allocate(wide(2 * n + 2))  ! пїЅпїЅ 1 WCHAR пїЅпїЅпїЅпїЅпїЅпїЅ (== 2 char) пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ \0
 
       k = 1
       do i = 1, n
@@ -25,7 +25,7 @@ contains
         k = k + 1
       end do
 
-      ! Завершающий WCHAR (\0\0)
+      ! пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ WCHAR (\0\0)
       wide(k) = c_null_char
       wide(k + 1) = c_null_char
     end function
