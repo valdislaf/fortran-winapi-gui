@@ -45,7 +45,7 @@ program WinMain
   call UpdateWindow(appDataInst%hPanel)  
 
   ! --- Кнопка ---   
-  call create_button(hButton, appDataInst%hPanel, hInstance, buttonTextW, classButtonW, transfer(ID_BUTTON1, 0_i_ptr), regResult)
+  call create_button(hButton, appDataInst%hPanel, hInstance, buttonTextW, classButtonW, ID_BUTTON1, regResult)
   call ShowWindow(hButton, SW_SHOW)
   call UpdateWindow(hButton)   
   
@@ -60,4 +60,5 @@ program WinMain
     call TranslateMessage(c_loc(msg_inst))
     call DispatchMessageW(c_loc(msg_inst))
   end do
+  
 end program WinMain
