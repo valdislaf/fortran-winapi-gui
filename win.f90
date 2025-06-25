@@ -16,6 +16,7 @@ program WinMain
   ! --- Данные пользователя для окна ---
   type(AppData), target :: appDataInst
   type(c_ptr)           :: appDataPtr
+  type(c_ptr)           :: msgPtr
 
   ! --- Строки WinAPI (именованные ресурсы) ---
   character(kind=char), allocatable, target :: windowTitleW(:)
@@ -48,7 +49,8 @@ program WinMain
   appDataPtr = c_loc(appDataInst)
   hBrush = CreateSolidBrush(MakeARGB(0, 50, 30, 10))
   hPanelBrush = CreateSolidBrush(MakeARGB(0, 40, 20, 0))
-
+  msgPtr =  c_loc(msg_inst)
+  
   ! --- Создание главного окна ---
   call create_main_window(hwnd, hInstance, appDataPtr, hBrush, wcx, regResult, &
                           classNameW, windowTitleW, iconPathW, cursorPathW)
@@ -74,12 +76,12 @@ program WinMain
 
   ! --- Установка пользовательских данных окна ---
   ! Важно вызвать после создания всех элементов, чтобы структура AppData была актуальна.
-  call SetWindowLongPtrW(hwnd, -21, transfer(c_loc(appDataInst), 0_i_ptr))
+  call SetWindowLongPtrW(hwnd, -21, transfer(appDataPtr, 0_i_ptr))
 
   ! --- Цикл обработки сообщений ---
-  do while (GetMessageW(c_loc(msg_inst), nullptr, 0, 0) > 0)
-    call TranslateMessage(c_loc(msg_inst))
-    call DispatchMessageW(c_loc(msg_inst))
+  do while (GetMessageW(msgPtr, nullptr, 0, 0) > 0)
+    call TranslateMessage(msgPtr)
+    call DispatchMessageW(msgPtr)
   end do
 
 end program WinMain
