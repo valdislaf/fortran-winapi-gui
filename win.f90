@@ -2,7 +2,6 @@
 program WinMain
   use win_api
   use gui_helpers
-  implicit none
 
   ! --- Переменные ---
   integer(int) :: regResult

@@ -105,8 +105,7 @@ module win_api
 contains
     ! Обработчик сообщений окна (WndProc)
     function WndProc(hWnd, Msg, wParam, lParam) bind(C) result(res)      
-      use standard
-      implicit none
+      use standard      
       type(AppData), pointer :: appDataInst
       type(ptr), value      :: hWnd
       integer(int), value   :: Msg

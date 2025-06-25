@@ -1,7 +1,7 @@
 ! Типы и константы WinAPI
 module win_types
   use iso_c_binding, only: int => c_int32_t, i_ptr => c_intptr_t, ptr => c_ptr, f_ptr => c_funptr, &
-      nullptr => c_null_ptr, char => c_char
+      nullptr => c_null_ptr, char => c_char, char0 => c_null_char
   implicit none
 
   ! Константы для окон и сообщений

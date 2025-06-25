@@ -2,7 +2,6 @@
   use win_api
   use win_types
   use standard
-  implicit none
 contains
 
   ! Создаёт главное окно приложения и регистрирует его класс.
