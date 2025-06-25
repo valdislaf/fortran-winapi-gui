@@ -57,10 +57,10 @@
 			<File RelativePath=".\favicon.ico"/>
 		</Filter>
 		<Filter Name="Source Files" Filter="f90;for;f;fpp;ftn;def;odl;idl">
-			<File RelativePath=".\gui_helpers.f90">
+			<File RelativePath=".\color_utils.f90">
 			</File>
-			<File RelativePath=".\standard.f90">
-			</File>
+			<File RelativePath=".\gui_helpers.f90"/>
+			<File RelativePath=".\standard.f90"/>
 			<File RelativePath=".\string_utils.f90">
 			</File>
 			<File RelativePath=".\win.f90"/>

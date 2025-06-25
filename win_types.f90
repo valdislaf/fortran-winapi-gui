@@ -1,10 +1,10 @@
-! ���� � ��������� WinAPI
+! Типы и константы WinAPI
 module win_types
   use iso_c_binding, only: int => c_int32_t, i_ptr => c_intptr_t, ptr => c_ptr, f_ptr => c_funptr, &
-      nullptr => c_null_ptr, char => c_char
+      nullptr => c_null_ptr, char => c_char, char0 => c_null_char
   implicit none
 
-  ! ��������� ��� ���� � ���������
+  ! Константы для окон и сообщений
   integer(int), parameter :: WS_OVERLAPPEDWINDOW = 13565952     ! 0x00CF0000
   integer(int), parameter :: WS_VISIBLE          = 268435456    ! 0x10000000
   integer(int), parameter :: WS_CHILD            = 1073741824   ! 0x40000000
@@ -13,19 +13,19 @@ module win_types
   integer(int), parameter :: IMAGE_ICON = 1
   integer(int), parameter :: LR_LOADFROMFILE = 16
 
-  ! ��������� Windows
+  ! Сообщения Windows
   integer(int), parameter :: WM_DESTROY          = 2
   integer(int), parameter :: WM_SIZE             = 5
   integer(int), parameter :: WM_COMMAND          = 273          ! 0x0111
 
-  ! ����� ������
+  ! Стиль кнопок
   integer(int), parameter :: BS_PUSHBUTTON       = 0
   integer(int), parameter :: BS_DEFPUSHBUTTON    = 1
 
-  ! �������������� ����������� ���������
+  ! Идентификаторы управляющих элементов
   integer(i_ptr), parameter :: ID_BUTTON1        = 1001
 
-  ! ��������� ������ ����
+  ! Структура класса окна
   type, bind(C) :: WNDCLASSEX
     integer(int)     :: cbSize
     integer(int)     :: style
@@ -41,7 +41,7 @@ module win_types
     type(ptr)        :: hIconSm
   end type
 
-  ! ��������� ���������
+  ! Структура сообщения
   type, bind(C) :: MSG_T
     type(ptr)         :: hwnd
     integer(int)      :: message
@@ -51,7 +51,7 @@ module win_types
     type(ptr)         :: pt
   end type
 
-  !������� ��������� ��� �������� hPanel
+  !Создаем структуру для передачи hPanel
   type, bind(C) :: AppData
     type(ptr) :: hPanel
   end type
