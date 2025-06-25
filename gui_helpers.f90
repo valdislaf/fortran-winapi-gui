@@ -82,13 +82,14 @@ contains
   end subroutine create_panel_window
 
   ! Создаёт кнопку в указанном родительском окне
-  subroutine create_button(hButton, hParent, hInstance, buttonTextW, classButtonW, idButton, regResult)
-    type(ptr), intent(out)             :: hButton        ! Дескриптор кнопки
-    type(ptr), intent(in)              :: hParent, hInstance
+  subroutine create_button(hButton, hParent, hInstance, buttonTextW, classButtonW, idButton, regResult, x, y, width, height)
+    type(ptr), intent(out)                   :: hButton          ! Дескриптор кнопки
+    type(ptr), intent(in)                    :: hParent, hInstance
     character(kind=char), intent(in), target :: buttonTextW(:), classButtonW(:)
-    integer(i_ptr), intent(in)         :: idButton
-    integer(int), intent(out)          :: regResult
-
+    integer(i_ptr), intent(in)               :: idButton
+    integer(int), intent(out)                :: regResult
+    integer(int), intent(in)                 :: x, y             ! Координаты кнопки 
+    integer(int), intent(in)                 :: width, height    ! Размеры кнопки 
     type(c_ptr) :: hMenuAsPtr
 
     ! Преобразование идентификатора кнопки к указателю
@@ -96,7 +97,7 @@ contains
 
     ! Создание кнопки
     hButton = CreateWindowExW(0, c_loc(classButtonW(1)), c_loc(buttonTextW(1)), &
-         WS_CHILD_VISIBLE + BS_DEFPUSHBUTTON, 2, 2, 76, 26, hParent, hMenuAsPtr, hInstance, nullptr)
+         WS_CHILD_VISIBLE + BS_DEFPUSHBUTTON, x, y, width, height, hParent, hMenuAsPtr, hInstance, nullptr)
 
     ! Проверка успеха
     if (.not. c_associated(hButton)) then
