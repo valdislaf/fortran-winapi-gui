@@ -44,7 +44,7 @@ program WinMain
 
   ! --- Инициализация дескрипторов и кистей ---
   hInstance = nullptr
-  appDataInst%hPanel = c_null_ptr
+  appDataInst%hPanel = nullptr
   appDataPtr = c_loc(appDataInst)
   hBrush = CreateSolidBrush(MakeARGB(0, 50, 30, 10))
   hPanelBrush = CreateSolidBrush(MakeARGB(0, 40, 20, 0))
