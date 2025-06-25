@@ -3,15 +3,15 @@ module win_types
   use iso_c_binding, only: int => c_int32_t, i_ptr => c_intptr_t, ptr => c_ptr, f_ptr => c_funptr, &
       nullptr => c_null_ptr, char => c_char, char0 => c_null_char
   implicit none
-
+  
   ! Константы для окон и сообщений
   integer(int), parameter :: WS_OVERLAPPEDWINDOW = 13565952     ! 0x00CF0000
   integer(int), parameter :: WS_VISIBLE          = 268435456    ! 0x10000000
   integer(int), parameter :: WS_CHILD            = 1073741824   ! 0x40000000
   integer(int), parameter :: WS_CHILD_VISIBLE    = WS_CHILD + WS_VISIBLE
   integer(int), parameter :: SW_SHOW             = 5
-  integer(int), parameter :: IMAGE_ICON = 1
-  integer(int), parameter :: LR_LOADFROMFILE = 16
+  integer(int), parameter :: IMAGE_ICON          = 1
+  integer(int), parameter :: LR_LOADFROMFILE     = 16
 
   ! Сообщения Windows
   integer(int), parameter :: WM_DESTROY          = 2
@@ -24,6 +24,7 @@ module win_types
 
   ! Идентификаторы управляющих элементов
   integer(i_ptr), parameter :: ID_BUTTON1        = 1001
+  integer(i_ptr), parameter :: ID_BUTTON2        = 1002
 
   ! Структура класса окна
   type, bind(C) :: WNDCLASSEX

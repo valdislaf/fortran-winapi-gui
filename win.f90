@@ -4,16 +4,24 @@ program WinMain
   use gui_helpers
 
   ! --- Переменные ---
-  integer(int) :: regResult
   type(WNDCLASSEX), target :: wcx, wcxPanel
   type(MSG_T), target :: msg_inst
   type(ptr) :: hwnd, hInstance, hBrush, hPanelBrush
   type(AppData), target :: appDataInst
   type(c_ptr) :: appDataPtr
-  type(ptr) :: hButton
-  character(kind=char), allocatable, target :: windowTitleW(:), classNameW(:), panelClassW(:), buttonTextW(:), classButtonW(:)    
-  character(kind=char), allocatable, target :: iconPathW(:), cursorPathW(:)
-  integer(int), parameter :: panelWidth = 800 / 10
+  type(ptr) :: hButton 
+  
+  ! --- Переменные ---
+  integer(int)                              :: regResult
+  integer(int), parameter                   :: panelWidth = 800 / 10
+  character(kind=char), allocatable, target :: windowTitleW(:)
+  character(kind=char), allocatable, target :: classNameW(:)
+  character(kind=char), allocatable, target :: panelClassW(:)
+  character(kind=char), allocatable, target :: classButtonW(:)    
+  character(kind=char), allocatable, target :: iconPathW(:)
+  character(kind=char), allocatable, target :: cursorPathW(:)
+  character(kind=char), allocatable, target :: buttonTextW(:)
+  character(kind=char), allocatable, target :: buttonTextW2(:)
   
   ! --- Строки ---
   allocate(cursorPathW(0)) ! ← аналог "инициализации значением по умолчанию" как в С++
@@ -23,6 +31,7 @@ program WinMain
   windowTitleW   = to_wide_null_terminated("Fortran Window")
   panelClassW    = to_wide_null_terminated("PanelClass")
   buttonTextW    = to_wide_null_terminated("Click me")
+  buttonTextW2   = to_wide_null_terminated("Click me2")
   classButtonW   = to_wide_null_terminated("Button")
 
   ! --- Прочее ---
@@ -39,14 +48,21 @@ program WinMain
   call UpdateWindow(hwnd)
 
   ! --- Панель ---
-  call create_panel_window(appDataInst%hPanel, hwnd, hInstance, hPanelBrush, wcxPanel, regResult, panelClassW, panelWidth, 600)
+  call create_panel_window(appDataInst%hPanel, hwnd, hInstance, hPanelBrush, &
+                        wcxPanel, regResult, panelClassW, panelWidth, 600)
   call ShowWindow(appDataInst%hPanel, SW_SHOW)
   call UpdateWindow(appDataInst%hPanel)  
 
-  ! --- Кнопка ---   
-  call create_button(hButton, appDataInst%hPanel, hInstance, buttonTextW, classButtonW, ID_BUTTON1, regResult)
+  ! --- Кнопка --- 
+  call create_button(hButton, appDataInst%hPanel, hInstance, buttonTextW, &
+                        classButtonW, ID_BUTTON1, regResult, 2, 2, 76, 26)
   call ShowWindow(hButton, SW_SHOW)
-  call UpdateWindow(hButton)   
+  call UpdateWindow(hButton)
+  ! --- Кнопка2 ---   
+  call create_button(hButton, appDataInst%hPanel, hInstance, buttonTextW2, &
+                        classButtonW, ID_BUTTON2, regResult, 2, 28, 76, 26)
+  call ShowWindow(hButton, SW_SHOW)
+  call UpdateWindow(hButton)
   
   ! Устанавливаем пользовательские данные (AppData) в окно.
   ! Это необходимо делать *после* создания панели и всех её компонентов,
