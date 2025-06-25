@@ -147,13 +147,4 @@ contains
       end select
     end function WndProc
     
-    function MakeARGB(A, R, G, B) result(color)
-      use iso_c_binding
-      use win_types
-      implicit none
-      integer(c_int32_t), intent(in) :: A, R, G, B
-      integer(c_int32_t) :: color
-      color = IOR(ISHFT(A, 24), IOR(ISHFT(R, 16), IOR(ISHFT(G, 8), B)))
-    end function MakeARGB
-    
 end module win_api
