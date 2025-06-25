@@ -3,28 +3,36 @@ program WinMain
   use win_api
   use gui_helpers
 
-  ! --- Переменные ---
-  type(WNDCLASSEX), target :: wcx, wcxPanel
-  type(MSG_T), target :: msg_inst
-  type(ptr) :: hwnd, hInstance, hBrush, hPanelBrush
+  ! --- Дескрипторы и структуры WinAPI ---
+  type(WNDCLASSEX), target :: wcx        ! Класс главного окна
+  type(WNDCLASSEX), target :: wcxPanel   ! Класс панели
+  type(MSG_T), target       :: msg_inst  ! Структура для обработки сообщений
+  type(ptr)                 :: hwnd       ! Главное окно
+  type(ptr)                 :: hInstance  ! Дескриптор приложения
+  type(ptr)                 :: hBrush     ! Фоновая кисть для окна
+  type(ptr)                 :: hPanelBrush! Фоновая кисть для панели
+  type(ptr)                 :: hButton    ! Кнопка (временно переиспользуется)
+
+  ! --- Данные пользователя для окна ---
   type(AppData), target :: appDataInst
-  type(c_ptr) :: appDataPtr
-  type(ptr) :: hButton 
-  
-  ! --- Переменные ---
-  integer(int)                              :: regResult
-  integer(int), parameter                   :: panelWidth = 800 / 10
+  type(c_ptr)           :: appDataPtr
+
+  ! --- Строки WinAPI (именованные ресурсы) ---
   character(kind=char), allocatable, target :: windowTitleW(:)
   character(kind=char), allocatable, target :: classNameW(:)
   character(kind=char), allocatable, target :: panelClassW(:)
-  character(kind=char), allocatable, target :: classButtonW(:)    
+  character(kind=char), allocatable, target :: classButtonW(:)
   character(kind=char), allocatable, target :: iconPathW(:)
   character(kind=char), allocatable, target :: cursorPathW(:)
   character(kind=char), allocatable, target :: buttonTextW(:)
   character(kind=char), allocatable, target :: buttonTextW2(:)
-  
-  ! --- Строки ---
-  allocate(cursorPathW(0)) ! ← аналог "инициализации значением по умолчанию" как в С++
+
+  ! --- Прочие параметры ---
+  integer(int)              :: regResult             ! Результат регистрации класса окна
+  integer(int), parameter   :: panelWidth = 800 / 10 ! Ширина панели
+
+  ! --- Инициализация строк ---
+  allocate(cursorPathW(0))  ! ← аналог "инициализации значением по умолчанию"
   cursorPathW    = to_wide_null_terminated("cross.ico")
   iconPathW      = to_wide_null_terminated("favicon.ico")
   classNameW     = to_wide_null_terminated("My window class")
@@ -34,46 +42,44 @@ program WinMain
   buttonTextW2   = to_wide_null_terminated("Click me2")
   classButtonW   = to_wide_null_terminated("Button")
 
-  ! --- Прочее ---
+  ! --- Инициализация дескрипторов и кистей ---
   hInstance = nullptr
   appDataInst%hPanel = c_null_ptr
   appDataPtr = c_loc(appDataInst)
   hBrush = CreateSolidBrush(MakeARGB(0, 50, 30, 10))
   hPanelBrush = CreateSolidBrush(MakeARGB(0, 40, 20, 0))
 
-  ! --- Главное окно ---
+  ! --- Создание главного окна ---
   call create_main_window(hwnd, hInstance, appDataPtr, hBrush, wcx, regResult, &
-                        classNameW, windowTitleW, iconPathW, cursorPathW)
+                          classNameW, windowTitleW, iconPathW, cursorPathW)
   call ShowWindow(hwnd, SW_SHOW)
   call UpdateWindow(hwnd)
 
-  ! --- Панель ---
+  ! --- Создание панели ---
   call create_panel_window(appDataInst%hPanel, hwnd, hInstance, hPanelBrush, &
-                        wcxPanel, regResult, panelClassW, panelWidth, 600)
+                           wcxPanel, regResult, panelClassW, panelWidth, 600)
   call ShowWindow(appDataInst%hPanel, SW_SHOW)
-  call UpdateWindow(appDataInst%hPanel)  
+  call UpdateWindow(appDataInst%hPanel)
 
-  ! --- Кнопка --- 
+  ! --- Создание кнопок ---
   call create_button(hButton, appDataInst%hPanel, hInstance, buttonTextW, &
-                        classButtonW, ID_BUTTON1, regResult, 2, 2, 76, 26)
+                     classButtonW, ID_BUTTON1, regResult, 2, 2, 76, 26)
   call ShowWindow(hButton, SW_SHOW)
   call UpdateWindow(hButton)
-  ! --- Кнопка2 ---   
+
   call create_button(hButton, appDataInst%hPanel, hInstance, buttonTextW2, &
-                        classButtonW, ID_BUTTON2, regResult, 2, 28, 76, 26)
+                     classButtonW, ID_BUTTON2, regResult, 2, 28, 76, 26)
   call ShowWindow(hButton, SW_SHOW)
   call UpdateWindow(hButton)
-  
-  ! Устанавливаем пользовательские данные (AppData) в окно.
-  ! Это необходимо делать *после* создания панели и всех её компонентов,
-  ! чтобы структура данных содержала актуальные указатели (например, на hPanel).
-  ! Используется в WndProc для доступа к этим данным через GetWindowLongPtrW.
+
+  ! --- Установка пользовательских данных окна ---
+  ! Важно вызвать после создания всех элементов, чтобы структура AppData была актуальна.
   call SetWindowLongPtrW(hwnd, -21, transfer(c_loc(appDataInst), 0_i_ptr))
-  
-  ! --- Цикл сообщений ---
+
+  ! --- Цикл обработки сообщений ---
   do while (GetMessageW(c_loc(msg_inst), nullptr, 0, 0) > 0)
     call TranslateMessage(c_loc(msg_inst))
     call DispatchMessageW(c_loc(msg_inst))
   end do
-  
+
 end program WinMain
