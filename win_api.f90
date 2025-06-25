@@ -100,6 +100,13 @@ module win_api
       integer(int), value :: nIndex
       integer(i_ptr), value :: dwNewLong
     end subroutine
+    
+    function GetWindowRect(hWnd, lpRect) bind(C, name="GetWindowRect")
+      use standard
+      type(ptr), value :: hWnd
+      type(ptr) :: lpRect
+      logical(c_bool) :: GetWindowRect
+    end function
 
   end interface
 contains
@@ -125,20 +132,25 @@ contains
         call PostQuitMessage(0)
         res = 0
       case (WM_SIZE)       
-                ! Сообщение об изменении размера окна
-        lp32 = transfer(lParam, 0_int)
-        width  = iand(lp32, 65535)              ! ширина окна = младшие 16 бит
-        height = iand(ishft(lp32, -16), 65535)  ! высота окна = старшие 16 бит
-        print *, "New size: ", width, "x", height
+       
+          lp32 = transfer(lParam, 0_int)
+          width  = iand(lp32, 65535)
+          height = iand(ishft(lp32, -16), 65535)
+          print *, "New size: ", width, "x", height
 
-        ! Вычисляем ширину панели: минимум 80 пикселей или 1/10 ширины окна
-        panelActualWidth = max(80, width / 10)
-        userData = GetWindowLongPtrW(hWnd, -21)
-        appDataPtr = transfer(userData, appDataPtr)
-        call c_f_pointer(appDataPtr, appDataInst)
+          panelActualWidth = max(80, width / 10)
+          userData = GetWindowLongPtrW(hWnd, -21)
+          appDataPtr = transfer(userData, appDataPtr)
+          call c_f_pointer(appDataPtr, appDataInst)
 
-        call MoveWindow(appDataInst%hPanel, 0, 0, panelActualWidth, height, .true._c_bool)
-        call UpdateWindow(appDataInst%hPanel)
+          call MoveWindow(appDataInst%hPanel, 0, 0, panelActualWidth, height, .true._c_bool)
+          call UpdateWindow(appDataInst%hPanel)
+
+          call MoveWindow(appDataInst%hwin, panelActualWidth, 0, &
+                          200, 200, .true._c_bool)
+          call UpdateWindow(appDataInst%hwin)
+
+          res = 0  ! ← обязательно
 
       case default
         ! Все остальные сообщения — стандартная обработка
@@ -146,4 +158,28 @@ contains
       end select
     end function WndProc
     
+    function GraphWndProc(hwnd, uMsg, wParam, lParam) bind(C, name="GraphWndProc") result(retval)
+       use standard
+      ! Аргументы, как требует WinAPI
+      type(ptr), value :: hwnd
+      integer(int), value :: uMsg
+      integer(i_ptr), value :: wParam, lParam
+      integer(i_ptr) :: retval
+      integer(int)          :: width, height, lp32, panelActualWidth
+      ! Константы сообщений
+      integer(int), parameter :: WM_PAINT = 15
+      integer(i_ptr), parameter :: TRUE = 1, FALSE = 0
+
+      select case (uMsg)
+      case (WM_SIZE)
+         
+      case (WM_PAINT)
+        print *, "Graph window WM_PAINT"
+        retval = 0
+      case default
+        ! Вызов стандартного обработчика, если сообщение не обработано
+        retval = DefWindowProcW(hwnd, uMsg, wParam, lParam)
+      end select
+    end function GraphWndProc
+
 end module win_api

@@ -17,11 +17,15 @@ program WinMain
   type(AppData), target :: appDataInst
   type(c_ptr)           :: appDataPtr
   type(c_ptr)           :: msgPtr
-
+  
+  ! --- Переменные для графического виджета ---
+  type(ptr) :: hGraphBrush  ! variable for passing nullptr
+  
   ! --- Строки WinAPI (именованные ресурсы) ---
   character(kind=char), allocatable, target :: windowTitleW(:)
   character(kind=char), allocatable, target :: classNameW(:)
   character(kind=char), allocatable, target :: panelClassW(:)
+  character(kind=char), allocatable, target :: graphClassW(:)
   character(kind=char), allocatable, target :: classButtonW(:)
   character(kind=char), allocatable, target :: iconPathW(:)
   character(kind=char), allocatable, target :: cursorPathW(:)
@@ -39,6 +43,7 @@ program WinMain
   classNameW     = to_wide_null_terminated("My window class")
   windowTitleW   = to_wide_null_terminated("Fortran Window")
   panelClassW    = to_wide_null_terminated("PanelClass")
+  graphClassW    = to_wide_null_terminated("GraphClass")
   buttonTextW    = to_wide_null_terminated("Click me")
   buttonTextW2   = to_wide_null_terminated("Click me2")
   classButtonW   = to_wide_null_terminated("Button")
@@ -46,10 +51,12 @@ program WinMain
   ! --- Инициализация дескрипторов и кистей ---
   hInstance = nullptr
   appDataInst%hPanel = nullptr
+  appDataInst%hwin = nullptr
   appDataPtr = c_loc(appDataInst)
   hBrush = CreateSolidBrush(MakeARGB(0, 50, 30, 10))
   hPanelBrush = CreateSolidBrush(MakeARGB(0, 40, 20, 0))
   msgPtr =  c_loc(msg_inst)
+  hGraphBrush  = CreateSolidBrush(MakeARGB(0, 250, 234, 10))
   
   ! --- Создание главного окна ---
   call create_main_window(hwnd, hInstance, appDataPtr, hBrush, wcx, regResult, &
@@ -63,6 +70,12 @@ program WinMain
   call ShowWindow(appDataInst%hPanel, SW_SHOW)
   call UpdateWindow(appDataInst%hPanel)
 
+  ! --- Создание графического виджета ---
+  call create_graph_window(appDataInst%hwin, hwnd, hInstance, hGraphBrush, &
+      wcxPanel, regResult, graphClassW, panelWidth, 100, 200, 200)
+  call ShowWindow(appDataInst%hwin, SW_SHOW)
+  call UpdateWindow(appDataInst%hwin)
+  
   ! --- Создание кнопок ---
   call create_button(hButton, appDataInst%hPanel, hInstance, buttonTextW, &
                      classButtonW, ID_BUTTON1, regResult, 2, 2, 76, 26)

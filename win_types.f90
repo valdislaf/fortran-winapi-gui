@@ -55,6 +55,9 @@ module win_types
   !Создаем структуру для передачи hPanel
   type, bind(C) :: AppData
     type(ptr) :: hPanel
+    type(ptr) :: hwin 
   end type
+  
+
 
 end module win_types
