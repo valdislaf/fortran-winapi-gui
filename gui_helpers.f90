@@ -54,7 +54,8 @@ contains
     character(kind=char), intent(in), target :: panelClassW(:)
     integer(int32), intent(out)     :: regResult        ! Код регистрации
     integer(int32), intent(in)      :: width, height    ! Размеры панели
-    type(ptr), parameter :: IDC_ARROW = transfer(int(Z'7F00', int32), c_null_ptr)
+    integer(int32), parameter :: ID_ARROW = 32512 ! Идентификатор курсора (стрелка)
+    type(ptr), parameter :: IDC_ARROW = transfer(ID_ARROW, nullptr)
     
     ! Настройка класса панели
     wcxPanel%cbSize             = c_sizeof(wcxPanel)
