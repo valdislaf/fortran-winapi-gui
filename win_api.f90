@@ -1,4 +1,4 @@
-! Интерфейсы к функциям WinAPI
+! Interfaces to WinAPI functions
 module win_api
   interface
     function RegisterClassExW(lpWndClass) bind(C, name="RegisterClassExW")
@@ -118,9 +118,9 @@ module win_api
     function InvalidateRect(hWnd, lpRect, bErase) bind(C, name="InvalidateRect")
       use standard
       type(ptr), value :: hWnd        ! HWND
-      type(ptr), value :: lpRect      ! LPRECT, может быть c_null_ptr
-      integer(int32), value :: bErase ! BOOL (1 или 0)
-      integer(int32) :: InvalidateRect ! BOOL (0 — ошибка, не 0 — успех)
+      type(ptr), value :: lpRect      ! LPRECT, can be c_null_ptr
+      integer(int32), value :: bErase ! BOOL (1 or 0)
+      integer(int32) :: InvalidateRect ! BOOL (0 — error, not 0 — success)
     end function
     
     function LoadCursorW(hInstance, lpCursorName) bind(C, name="LoadCursorW")
@@ -133,7 +133,7 @@ module win_api
      
   end interface
 contains
-    ! Обработчик сообщений окна (WndProc)
+    ! Window message handler (WndProc)
     function WndProc(hWnd, Msg, wParam, lParam) bind(C) result(res)      
       use standard      
       type(AppData), pointer :: appDataInst
@@ -156,15 +156,15 @@ contains
         call SetWindowLongPtrW(hWnd, -21, transfer(appDataPtr, 0_i_ptr))
         res = 0
       case (WM_DESTROY)
-        ! Сообщение о закрытии окна — завершить цикл сообщений
+        ! Window close message — end message loop
         call PostQuitMessage(0)
         res = 0       
           
       case (WM_SIZE)       
-          ! Сообщение об изменении размера окна
+          ! Window resize message
           lp32 = transfer(lParam, int32)
-          width  = iand(lp32, 65535)              ! ширина окна = младшие 16 бит
-          height = iand(ishft(lp32, -16), 65535)  ! высота окна = старшие 16 бит
+          width  = iand(lp32, 65535)              ! window width = lower 16 bits
+          height = iand(ishft(lp32, -16), 65535)  ! window height = upper 16 bits
           print *, "New size: ", width, "x", height
 
           panelActualWidth = max(80, width / 10)
@@ -177,28 +177,28 @@ contains
           call MoveWindow(appDataInst%hwin, panelActualWidth, 0, &
                           width - panelActualWidth , height, .true._c_bool) 
                     
-          call MoveWindow(appDataInst%hPanel, 0, 0, panelActualWidth, height, .true._c_bool)  !<== ПЕРЕМЕСТИЛ СТРОКУ СЮДА
+          call MoveWindow(appDataInst%hPanel, 0, 0, panelActualWidth, height, .true._c_bool)  !<== MOVED THIS LINE HERE
           call UpdateWindow(appDataInst%hPanel)
           call UpdateWindow(appDataInst%hwin)
       
-          res = 0  ! ← обязательно
+          res = 0  ! ← required
 
       case default
-        ! Все остальные сообщения — стандартная обработка
+        ! All other messages — default processing
         res = DefWindowProcW(hWnd, Msg, wParam, lParam)
       end select
     end function WndProc
     
     function GraphWndProc(hwnd, uMsg, wParam, lParam) bind(C, name="GraphWndProc") result(retval)
        use standard
-      ! Аргументы, как требует WinAPI
+      ! Arguments as required by WinAPI
       type(ptr), value :: hwnd
       integer(int32), value :: uMsg
       integer(i_ptr), value :: wParam, lParam
       integer(i_ptr) :: retval
       integer(int32)          :: width, height, lp32, panelActualWidth
       integer(int32) :: resultInvalidate
-      ! Константы сообщений     
+      ! Message constants     
       integer(i_ptr), parameter :: TRUE = 1, FALSE = 0
       retval = 0
       resultInvalidate = 0
@@ -215,7 +215,7 @@ contains
         !print *, "Graph window WM_PAINT"
         retval = 0
       case default
-        ! Вызов стандартного обработчика, если сообщение не обработано
+        ! Call default handler if message is not processed
         retval = DefWindowProcW(hwnd, uMsg, wParam, lParam)
       end select
     end function GraphWndProc
