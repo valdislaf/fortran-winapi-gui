@@ -83,7 +83,7 @@ contains
   end subroutine create_panel_window
 
   ! Регистрирует и создаёт графический виджет для отрисовки 2D-графиков
-  subroutine create_graph_window(hGraph, hwndParent, hInstance, hPanelBrush, wcxGraph, regResult, graphClassW, x, y, width, height)
+  subroutine create_graph_window(hGraph, hwndParent, hInstance, hPanelBrush, wcxGraph, regResult, graphClassW, cursorPathW, x, y, width, height)
     type(ptr), intent(out)        :: hGraph           ! Дескриптор графического окна
     type(ptr), intent(in)         :: hwndParent, hInstance    
     type(ptr), intent(in)         :: hPanelBrush           ! Кисть фона
@@ -91,7 +91,8 @@ contains
     character(kind=char), intent(in), target :: graphClassW(:)
     integer(int32), intent(out)     :: regResult
     integer(int32), intent(in)      :: x, y, width, height
-
+    character(kind=char), intent(in), target ::  cursorPathW(:)  !Курсор 
+    
     wcxGraph%cbSize             = c_sizeof(wcxGraph)
     wcxGraph%style              = 0
     wcxGraph%lpfnWndProc        = c_funloc(GraphWndProc)   ! Отдельная WndProc
@@ -99,7 +100,7 @@ contains
     wcxGraph%cbWndExtra         = 0
     wcxGraph%hInstance          = hInstance
     wcxGraph%hIcon              = nullptr
-    wcxGraph%hCursor            = nullptr
+    wcxGraph%hCursor            = LoadImageW(nullptr, c_loc(cursorPathW(1)), IMAGE_ICON, 0, 0, LR_LOADFROMFILE)
     wcxGraph%hbrBackground      = hPanelBrush
     wcxGraph%lpszMenuName       = nullptr
     wcxGraph%lpszClassName      = c_loc(graphClassW(1))

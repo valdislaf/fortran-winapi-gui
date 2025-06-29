@@ -57,7 +57,7 @@ program WinMain
   hBrush             = CreateSolidBrush(MakeARGB(0, 50, 30, 10))
   hPanelBrush        = CreateSolidBrush(MakeARGB(0, 255, 20, 0))
   msgPtr             =  c_loc(msg_inst)
-  hGraphBrush        = CreateSolidBrush(MakeARGB(0, 250, 234, 10))
+  hGraphBrush        = CreateSolidBrush(MakeARGB(0, 60, 60, 10))
   
   ! начальные размеры окна
   width              = 800
@@ -76,7 +76,7 @@ program WinMain
 
   ! --- Создание графического виджета ---
  call create_graph_window(appDataInst%hwin, hwnd, hInstance, hGraphBrush, &
-      wcxGraph, regResult, graphClassW, panelWidth, 0, width - panelWidth , height)
+      wcxGraph, regResult, graphClassW, cursorPathW, panelWidth, 0, width - panelWidth , height)
 
   call ShowWindow(appDataInst%hwin, SW_SHOW)
   call UpdateWindow(appDataInst%hwin)
