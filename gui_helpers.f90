@@ -54,7 +54,8 @@ contains
     character(kind=char), intent(in), target :: panelClassW(:)
     integer(int32), intent(out)     :: regResult        ! Код регистрации
     integer(int32), intent(in)      :: width, height    ! Размеры панели
-
+    type(ptr), parameter :: IDC_ARROW = transfer(int(Z'7F00', int32), c_null_ptr)
+    
     ! Настройка класса панели
     wcxPanel%cbSize             = c_sizeof(wcxPanel)
     wcxPanel%style              = 0
@@ -63,7 +64,7 @@ contains
     wcxPanel%cbWndExtra         = 0
     wcxPanel%hInstance          = hInstance
     wcxPanel%hIcon              = nullptr
-    wcxPanel%hCursor            = nullptr
+    wcxPanel%hCursor            = LoadCursorW(nullptr, IDC_ARROW)
     wcxPanel%hbrBackground      = hBrush
     wcxPanel%lpszMenuName       = nullptr
     wcxPanel%lpszClassName      = c_loc(panelClassW(1))

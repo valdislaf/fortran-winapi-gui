@@ -18,7 +18,7 @@ module win_types
   integer(int32), parameter :: WM_SIZE             = 5
   integer(int32), parameter :: WM_COMMAND          = 273          ! 0x0111
   integer(int32), parameter :: WM_PAINT = 15
-
+  
   ! Стиль кнопок
   integer(int32), parameter :: BS_PUSHBUTTON       = 0
   integer(int32), parameter :: BS_DEFPUSHBUTTON    = 1

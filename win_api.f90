@@ -122,6 +122,13 @@ module win_api
       integer(int32), value :: bErase ! BOOL (1 или 0)
       integer(int32) :: InvalidateRect ! BOOL (0 — ошибка, не 0 — успех)
     end function
+    
+    function LoadCursorW(hInstance, lpCursorName) bind(C, name="LoadCursorW")
+      use standard
+      type(ptr), value :: hInstance
+      type(ptr), value :: lpCursorName
+      type(ptr) :: LoadCursorW
+    end function
 
      
   end interface
