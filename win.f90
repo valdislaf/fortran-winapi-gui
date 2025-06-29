@@ -6,6 +6,7 @@ program WinMain
   ! --- Дескрипторы и структуры WinAPI ---
   type(WNDCLASSEX), target :: wcx        ! Класс главного окна
   type(WNDCLASSEX), target :: wcxPanel   ! Класс панели
+  type(WNDCLASSEX), target :: wcxGraph   ! Класс графического окна
   type(MSG_T), target       :: msg_inst  ! Структура для обработки сообщений
   type(ptr)                 :: hwnd       ! Главное окно
   type(ptr)                 :: hInstance  ! Дескриптор приложения
@@ -33,9 +34,9 @@ program WinMain
   character(kind=char), allocatable, target :: buttonTextW2(:)
 
   ! --- Прочие параметры ---
-  integer(int)              :: regResult             ! Результат регистрации класса окна
-  integer(int), parameter   :: panelWidth = 800 / 10 ! Ширина панели
-
+  integer(int32)                  :: regResult             ! Результат регистрации класса окна
+  integer(int32), parameter       :: panelWidth = 800 / 10 ! Ширина панели
+  integer(int32)                  :: width, height         ! Размеры окна
   ! --- Инициализация строк ---
   allocate(cursorPathW(0))  ! ← аналог "инициализации значением по умолчанию"
   cursorPathW    = to_wide_null_terminated("cross.ico")
@@ -49,30 +50,34 @@ program WinMain
   classButtonW   = to_wide_null_terminated("Button")
 
   ! --- Инициализация дескрипторов и кистей ---
-  hInstance = nullptr
+  hInstance          = nullptr
   appDataInst%hPanel = nullptr
-  appDataInst%hwin = nullptr
-  appDataPtr = c_loc(appDataInst)
-  hBrush = CreateSolidBrush(MakeARGB(0, 50, 30, 10))
-  hPanelBrush = CreateSolidBrush(MakeARGB(0, 40, 20, 0))
-  msgPtr =  c_loc(msg_inst)
-  hGraphBrush  = CreateSolidBrush(MakeARGB(0, 250, 234, 10))
+  appDataInst%hwin   = nullptr
+  appDataPtr         = c_loc(appDataInst)
+  hBrush             = CreateSolidBrush(MakeARGB(0, 50, 30, 10))
+  hPanelBrush        = CreateSolidBrush(MakeARGB(0, 255, 20, 0))
+  msgPtr             =  c_loc(msg_inst)
+  hGraphBrush        = CreateSolidBrush(MakeARGB(0, 250, 234, 10))
   
+  ! начальные размеры окна
+  width              = 800
+  height             = 600
   ! --- Создание главного окна ---
   call create_main_window(hwnd, hInstance, appDataPtr, hBrush, wcx, regResult, &
-                          classNameW, windowTitleW, iconPathW, cursorPathW)
+                          classNameW, windowTitleW, iconPathW, cursorPathW, width, height)
   call ShowWindow(hwnd, SW_SHOW)
   call UpdateWindow(hwnd)
 
   ! --- Создание панели ---
   call create_panel_window(appDataInst%hPanel, hwnd, hInstance, hPanelBrush, &
-                           wcxPanel, regResult, panelClassW, panelWidth, 600)
+                           wcxPanel, regResult, panelClassW, panelWidth, height)
   call ShowWindow(appDataInst%hPanel, SW_SHOW)
   call UpdateWindow(appDataInst%hPanel)
 
   ! --- Создание графического виджета ---
-  call create_graph_window(appDataInst%hwin, hwnd, hInstance, hGraphBrush, &
-      wcxPanel, regResult, graphClassW, panelWidth, 100, 200, 200)
+ call create_graph_window(appDataInst%hwin, hwnd, hInstance, hGraphBrush, &
+      wcxGraph, regResult, graphClassW, panelWidth, 0, width - panelWidth , height)
+
   call ShowWindow(appDataInst%hwin, SW_SHOW)
   call UpdateWindow(appDataInst%hwin)
   

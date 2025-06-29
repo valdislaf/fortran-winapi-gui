@@ -6,7 +6,7 @@ contains
 
   ! Создаёт главное окно приложения и регистрирует его класс.
   subroutine create_main_window(hwnd, hInstance, appDataPtr, hBrush, wcx, regResult, &
-                                classNameW, windowTitleW, iconPathW, cursorPathW)
+                                classNameW, windowTitleW, iconPathW, cursorPathW, width, height)
     type(ptr), intent(out)        :: hwnd             ! Возвращаемый дескриптор главного окна
     type(ptr), intent(in)         :: hInstance        ! Дескриптор экземпляра приложения
     type(c_ptr), intent(in)       :: appDataPtr       ! Указатель на пользовательские данные (AppData)
@@ -14,8 +14,9 @@ contains
     type(WNDCLASSEX), intent(out), target :: wcx      ! Структура класса окна
     character(kind=char), intent(in), target :: classNameW(:), windowTitleW(:)
     character(kind=char), intent(in), target :: iconPathW(:), cursorPathW(:)
-    integer(int), intent(out)     :: regResult        ! Код регистрации окна
-
+    integer(int32), intent(out)     :: regResult        ! Код регистрации окна
+    integer(int32), intent(in)      :: width, height    ! Размеры панели
+    
     ! Настройка структуры класса окна
     wcx%cbSize             = c_sizeof(wcx)
     wcx%style              = 0
@@ -40,7 +41,7 @@ contains
 
     ! Создание главного окна
     hwnd = CreateWindowExW(0, c_loc(classNameW(1)), c_loc(windowTitleW(1)), &
-            WS_OVERLAPPEDWINDOW, 100, 100, 800, 600, nullptr, nullptr, hInstance, appDataPtr)
+            WS_OVERLAPPEDWINDOW, 100, 100, width, height, nullptr, nullptr, hInstance, appDataPtr)
   end subroutine create_main_window
 
   ! Регистрирует и создаёт дочернюю панель внутри главного окна
@@ -51,8 +52,8 @@ contains
     type(ptr), intent(in)         :: hBrush           ! Кисть фона
     type(WNDCLASSEX), intent(out), target :: wcxPanel ! Структура класса панели
     character(kind=char), intent(in), target :: panelClassW(:)
-    integer(int), intent(out)     :: regResult        ! Код регистрации
-    integer(int), intent(in)      :: width, height    ! Размеры панели
+    integer(int32), intent(out)     :: regResult        ! Код регистрации
+    integer(int32), intent(in)      :: width, height    ! Размеры панели
 
     ! Настройка класса панели
     wcxPanel%cbSize             = c_sizeof(wcxPanel)
@@ -88,8 +89,8 @@ contains
     type(ptr), intent(in)         :: hPanelBrush           ! Кисть фона
     type(WNDCLASSEX), intent(out), target :: wcxGraph ! Структура класса графа
     character(kind=char), intent(in), target :: graphClassW(:)
-    integer(int), intent(out)     :: regResult
-    integer(int), intent(in)      :: x, y, width, height
+    integer(int32), intent(out)     :: regResult
+    integer(int32), intent(in)      :: x, y, width, height
 
     wcxGraph%cbSize             = c_sizeof(wcxGraph)
     wcxGraph%style              = 0
@@ -121,9 +122,9 @@ contains
     type(ptr), intent(in)                    :: hParent, hInstance
     character(kind=char), intent(in), target :: buttonTextW(:), classButtonW(:)
     integer(i_ptr), intent(in)               :: idButton
-    integer(int), intent(out)                :: regResult
-    integer(int), intent(in)                 :: x, y             ! Координаты кнопки 
-    integer(int), intent(in)                 :: width, height    ! Размеры кнопки 
+    integer(int32), intent(out)                :: regResult
+    integer(int32), intent(in)                 :: x, y             ! Координаты кнопки 
+    integer(int32), intent(in)                 :: width, height    ! Размеры кнопки 
     type(c_ptr) :: hMenuAsPtr
 
     ! Преобразование идентификатора кнопки к указателю
