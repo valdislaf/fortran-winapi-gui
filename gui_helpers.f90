@@ -94,12 +94,13 @@ contains
     integer(int32), intent(out)     :: regResult
     integer(int32), intent(in)      :: x, y, width, height
     character(kind=char), intent(in), target ::  cursorPathW(:)  ! Cursor 
+    type(ptr) :: tmp_ptr
     
     wcxGraph%cbSize             = c_sizeof(wcxGraph)
     wcxGraph%style              = 0
     wcxGraph%lpfnWndProc        = c_funloc(GraphWndProc)   ! Separate WndProc
     wcxGraph%cbClsExtra         = 0
-    wcxGraph%cbWndExtra         = 0
+    wcxGraph%cbWndExtra         = c_sizeof(tmp_ptr)
     wcxGraph%hInstance          = hInstance
     wcxGraph%hIcon              = nullptr
     wcxGraph%hCursor            = LoadImageW(nullptr, c_loc(cursorPathW(1)), IMAGE_ICON, 0, 0, LR_LOADFROMFILE)

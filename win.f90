@@ -40,6 +40,9 @@ program WinMain
   integer(int32)                  :: coordX = 10
   integer(int32)                  :: coordY = 780 
   
+  type(RECT), target  :: rc
+  integer(int32) :: res
+  integer(int32)                  :: i = 0 
   ! --- String initialization ---
   allocate(cursorPathW(0))  ! ← equivalent to "default value initialization"
   cursorPathW    = to_wide_null_terminated("cross.ico")
@@ -74,6 +77,7 @@ program WinMain
   ! --- Create panel ---
   call create_panel_window(appDataInst%hPanel, hwnd, hInstance, hPanelBrush, &
                            wcxPanel, regResult, panelClassW, panelWidth, height)
+
   call ShowWindow(appDataInst%hPanel, SW_SHOW)
   call UpdateWindow(appDataInst%hPanel)
 
@@ -81,8 +85,18 @@ program WinMain
   call create_graph_window(appDataInst%hwin, hwnd, hInstance, hGraphBrush, &
       wcxGraph, regResult, graphClassW, cursorPathW, panelWidth, 0, width - panelWidth , height)
 
+  res = GetClientRect(appDataInst%hwin, c_loc(rc))
+  print *, "GetClientRect create_graph_window : res=", res, " rc=", rc%left, rc%top, rc%right, rc%bottom
+
   call ShowWindow(appDataInst%hwin, SW_SHOW)
   call UpdateWindow(appDataInst%hwin)
+  !do while (i<1000000000)
+  !    call UpdateWindow(appDataInst%hwin)
+  !    i =i +1
+  !end do
+  
+  res = GetClientRect(appDataInst%hwin, c_loc(rc))
+  print *, "GetClientRect ShowWindow: res=", res, " rc=", rc%left, rc%top, rc%right, rc%bottom
   
   ! --- Create buttons ---
   call create_button(hButton, appDataInst%hPanel, hInstance, buttonTextW, &

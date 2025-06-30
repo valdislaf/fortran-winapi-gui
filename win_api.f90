@@ -110,9 +110,9 @@ module win_api
     
     function GetClientRect(hWnd, lpRect) bind(C, name="GetClientRect")
       use standard
-      type(ptr), value :: hWnd
-      type(ptr) :: lpRect
-      integer(int32) :: GetClientRect
+      type(ptr), value   :: hWnd
+      type(ptr)          :: lpRect
+      integer(int32)     :: GetClientRect
     end function
     
     function InvalidateRect(hWnd, lpRect, bErase) bind(C, name="InvalidateRect")
@@ -152,9 +152,15 @@ module win_api
         integer(int32)     :: FillRect
       end function
 
-     
+      function DeleteObject(hObject) bind(C, name="DeleteObject")
+        use standard
+        type(ptr), value :: hObject
+        integer(int32) :: DeleteObject
+      end function     
   end interface
+  
 contains
+
     ! Window message handler (WndProc)
     function WndProc(hWnd, Msg, wParam, lParam) bind(C) result(res)      
       use standard      
@@ -208,49 +214,89 @@ contains
         res = DefWindowProcW(hWnd, Msg, wParam, lParam)
       end select
     end function WndProc
-    
+   
     function GraphWndProc(hwnd, uMsg, wParam, lParam) bind(C, name="GraphWndProc") result(retval)
-       use standard
-      ! Arguments as required by WinAPI
+      use standard
       type(ptr), value :: hwnd
-      type(PAINTSTRUCT), target    :: ps
-      type(RECT), target           :: rc
-      type(ptr)                    :: hdc, hbrush
-      integer(int32)               :: resultbool
-      integer(int32), value        :: uMsg
-      integer(i_ptr), value        :: wParam, lParam
-      integer(i_ptr)               :: retval
-      integer(int32)               :: width, height, lp32, panelActualWidth
-      integer(i_ptr)               :: resultInvalidate
+      type(PAINTSTRUCT), target :: ps
+      type(RECT), target :: rc
+      type(ptr) :: hdc
+      integer(int32), value :: uMsg
+      integer(i_ptr), value :: wParam, lParam
+      integer(i_ptr) :: retval
+      integer(int32) :: resultbool
+      integer(i_ptr) :: resultInvalidate
+      integer(i_ptr) :: userData
+      type(GraphData), pointer :: pgraphData
+      type(ptr) :: pgraphDataPtr
       
-      ! Message constants     
-      integer(i_ptr), parameter :: TRUE = 1, FALSE = 0
+      print *, "GraphWndProc called! hwnd=", transfer(hwnd, 0_i_ptr), " uMsg=", uMsg
       retval = 0
       resultInvalidate = 0
-      !print *, "GraphWndProc called: uMsg =", uMsg
-      
-      select case (uMsg)
+
+      select case (uMsg)     
+      case (1)  ! WM_CREATE
+        allocate(pgraphData)
+        !pgraphData%hbrush = CreateSolidBrush(MakeARGB(0, 255, 0, 255))  ! Фиолетовая кисть
+        pgraphData%hbrush = CreateSolidBrush(int(Z'000000FF', int32))  ! R=255
+        pgraphDataPtr = c_loc(pgraphData)
+        call SetWindowLongPtrW(hwnd, 0, transfer(pgraphDataPtr, 0_i_ptr))
+        print *, "SetWindowLongPtrW done"
+  retval = 0
+        retval = 0
+
+      case (WM_DESTROY)
+          userData = GetWindowLongPtrW(hwnd, 0)
+          if (userData /= 0) then
+            pgraphDataPtr = transfer(userData, c_null_ptr)
+            call c_f_pointer(pgraphDataPtr, pgraphData)
+            if (associated(pgraphData)) then
+              resultbool = DeleteObject(pgraphData%hbrush)
+              deallocate(pgraphData)
+            else
+              print *, "GraphData not associated in WM_DESTROY"
+            end if
+          else
+            print *, "userData == 0 in WM_DESTROY"
+          end if
+          retval = 0
+
       case (WM_SIZE)
-        resultInvalidate = InvalidateRect(hwnd, nullptr, 1)
+        resultInvalidate = InvalidateRect(hwnd, c_null_ptr, 1)
         print *, "WM_SIZE GraphWndProc, result: ", resultInvalidate
-        print *, "GraphWndProc got WM_SIZE"
         retval = 0
-          
+
       case (WM_PAINT)
-        print *, "WM_PAINT triggered"
-        hdc = BeginPaint(hwnd, c_loc(ps))
+          print *, "WM_PAINT triggered"
+          hdc = BeginPaint(hwnd, c_loc(ps))
+          
+          print *, "hwnd в WM_PAINT = ", transfer(hwnd, 0_i_ptr)
 
-        resultbool = GetClientRect(hwnd, c_loc(rc))
-        !hbrush = CreateSolidBrush(int(Z'000000FF', int32))  ! Красный (в BGR!)
-        hbrush = CreateSolidBrush(MakeARGB(0, 0, 0, 255))
-        resultbool = FillRect(hdc, c_loc(rc), hbrush)
+          resultbool = GetClientRect(hwnd, c_loc(rc))
+          print *, "GetClientRect result = ", resultbool
+          print *, "rc: ", rc%left, rc%top, rc%right, rc%bottom 
+          
+          userData = GetWindowLongPtrW(hwnd, 0)
+          if (userData /= 0) then
+            pgraphDataPtr = transfer(userData, c_null_ptr)
+            call c_f_pointer(pgraphDataPtr, pgraphData)
+            if (associated(pgraphData)) then
+              resultbool = FillRect(hdc, c_loc(rc), pgraphData%hbrush)
+            else
+              print *, "pgraphData not associated!"
+            end if
+          else
+            print *, "userData == 0, skipping FillRect"
+          end if
+          print *, "rc: ", rc%left, rc%top, rc%right, rc%bottom
+          
+          resultbool = EndPaint(hwnd, c_loc(ps))
+          retval = 0
 
-        resultbool = EndPaint(hwnd, c_loc(ps))
-        retval = 0
       case default
-        ! Call default handler if message is not processed
         retval = DefWindowProcW(hwnd, uMsg, wParam, lParam)
       end select
     end function GraphWndProc
+
 
 end module win_api
