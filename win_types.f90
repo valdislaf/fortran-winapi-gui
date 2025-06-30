@@ -61,7 +61,20 @@ module win_types
   end type
   
   type, bind(C) :: RECT
-      integer(long) :: left, top, right, bottom
-  end type
+    integer(int32) :: left
+    integer(int32) :: top
+    integer(int32) :: right
+    integer(int32) :: bottom
+  end type RECT
+
+  type, bind(C) :: PAINTSTRUCT
+    type(ptr)        :: hdc            ! HDC
+    logical(1)       :: fErase         ! BOOL
+    type(RECT)       :: rcPaint
+    logical(1)       :: fRestore
+    logical(1)       :: fIncUpdate
+    character(1)     :: rgbReserved(32)
+  end type PAINTSTRUCT
+
 
 end module win_types

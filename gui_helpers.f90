@@ -27,6 +27,7 @@ contains
     wcx%hIcon              = LoadImageW(nullptr, c_loc(iconPathW(1)), IMAGE_ICON, 0, 0, LR_LOADFROMFILE)
     wcx%hCursor            = LoadImageW(nullptr, c_loc(cursorPathW(1)), IMAGE_ICON, 0, 0, LR_LOADFROMFILE)
     wcx%hbrBackground      = hBrush
+    !wcx%hbrBackground      = nullptr
     wcx%lpszMenuName       = nullptr
     wcx%lpszClassName      = c_loc(classNameW(1))
     wcx%hIconSm            = wcx%hIcon
@@ -103,6 +104,7 @@ contains
     wcxGraph%hIcon              = nullptr
     wcxGraph%hCursor            = LoadImageW(nullptr, c_loc(cursorPathW(1)), IMAGE_ICON, 0, 0, LR_LOADFROMFILE)
     wcxGraph%hbrBackground      = hPanelBrush
+   ! wcxGraph%hbrBackground      = nullptr
     wcxGraph%lpszMenuName       = nullptr
     wcxGraph%lpszClassName      = c_loc(graphClassW(1))
     wcxGraph%hIconSm            = nullptr
