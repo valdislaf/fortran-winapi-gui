@@ -37,6 +37,9 @@ program WinMain
   integer(int32)                  :: regResult             ! Window class registration result
   integer(int32), parameter       :: panelWidth = 800 / 10 ! Panel width
   integer(int32)                  :: width, height         ! Window size
+  integer(int32)                  :: coordX = 10
+  integer(int32)                  :: coordY = 780 
+  
   ! --- String initialization ---
   allocate(cursorPathW(0))  ! ← equivalent to "default value initialization"
   cursorPathW    = to_wide_null_terminated("cross.ico")
@@ -64,7 +67,7 @@ program WinMain
   height             = 600
   ! --- Create main window ---
   call create_main_window(hwnd, hInstance, appDataPtr, hBrush, wcx, regResult, &
-                          classNameW, windowTitleW, iconPathW, cursorPathW, width, height)
+                          classNameW, windowTitleW, iconPathW, cursorPathW, coordX, coordY, width, height)
   call ShowWindow(hwnd, SW_SHOW)
   call UpdateWindow(hwnd)
 

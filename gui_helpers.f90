@@ -6,7 +6,7 @@ contains
 
   ! Creates the main application window and registers its class.
   subroutine create_main_window(hwnd, hInstance, appDataPtr, hBrush, wcx, regResult, &
-                                classNameW, windowTitleW, iconPathW, cursorPathW, width, height)
+                                classNameW, windowTitleW, iconPathW, cursorPathW, coordX, coordY, width, height)
     type(ptr), intent(out)        :: hwnd             ! Returned handle of the main window
     type(ptr), intent(in)         :: hInstance        ! Application instance handle
     type(c_ptr), intent(in)       :: appDataPtr       ! Pointer to user data (AppData)
@@ -15,7 +15,7 @@ contains
     character(kind=char), intent(in), target :: classNameW(:), windowTitleW(:)
     character(kind=char), intent(in), target :: iconPathW(:), cursorPathW(:)
     integer(int32), intent(out)     :: regResult        ! Window registration code
-    integer(int32), intent(in)      :: width, height    ! Panel size
+    integer(int32), intent(in)      :: coordX, coordY, width, height    ! Panel coordinates and size
     
     ! Configure the window class structure
     wcx%cbSize             = c_sizeof(wcx)
@@ -41,7 +41,7 @@ contains
 
     ! Create the main window
     hwnd = CreateWindowExW(0, c_loc(classNameW(1)), c_loc(windowTitleW(1)), &
-            WS_OVERLAPPEDWINDOW, 100, 100, width, height, nullptr, nullptr, hInstance, appDataPtr)
+            WS_OVERLAPPEDWINDOW, coordX, coordY, width, height, nullptr, nullptr, hInstance, appDataPtr)
   end subroutine create_main_window
 
   ! Registers and creates a child panel inside the main window
