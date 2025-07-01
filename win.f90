@@ -90,6 +90,7 @@ program WinMain
 
   call ShowWindow(appDataInst%hwin, SW_SHOW)
   call UpdateWindow(appDataInst%hwin)
+  
   !do while (i<1000000000)
   !    call UpdateWindow(appDataInst%hwin)
   !    i =i +1
