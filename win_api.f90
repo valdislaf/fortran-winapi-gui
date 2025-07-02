@@ -203,7 +203,11 @@ contains
         call PostQuitMessage(0)
         res = 0       
           
-      case (WM_SIZE)       
+      case (WM_SIZE) 
+        resultbool = GetClientRect(hwnd, c_loc(rc))
+        print *, "====>>  ===>> ===>>WndProc WM_SIZE: rc: ", rc%left, rc%top, rc%right, rc%bottom
+        print *, "====>>  ===>> ===>>WndProc WM_SIZE GetClientRect HWND = ", transfer(hwnd, 0_i_ptr)
+
           ! Window resize message
           lp32 = transfer(lParam, int32)
           width  = iand(lp32, 65535)              ! window width = lower 16 bits
@@ -250,7 +254,7 @@ contains
       integer(i_ptr) :: userData
       type(GraphData), pointer :: pgraphData
       type(ptr) :: pgraphDataPtr
-      integer(long) :: style
+      integer(c_long) :: style
       print *, "GraphWndProc called! hwnd=", transfer(hwnd, 0_i_ptr), " uMsg=", uMsg
       retval = 0
       resultInvalidate = 0
@@ -283,6 +287,8 @@ contains
           retval = 0
 
       case (WM_SIZE)
+        resultbool = GetClientRect(hwnd, c_loc(rc))
+        print *, "WM_SIZE: rc: ", rc%left, rc%top, rc%right, rc%bottom
         print *, "WM_SIZE GetClientRect HWND = ", transfer(hwnd, 0_i_ptr)
 
         resultInvalidate = InvalidateRect(hwnd, c_null_ptr, 1)
@@ -292,6 +298,7 @@ contains
         retval = 0
 
       case (WM_PAINT)
+          print *, "sizeof(RECT):", c_sizeof(rc)
           print *, "WM_PAINT GetClientRect HWND = ", transfer(hwnd, 0_i_ptr)
           print *, "SIZEOF(rc) = ", storage_size(rc) / 8
           print *, "WM_PAINT triggered"
@@ -313,7 +320,7 @@ contains
           rc%top = -2222
           rc%right = -3333
           rc%bottom = -4444          
-          resultbool = GetClientRect(hwnd, c_loc(rc))
+          resultbool = GetClientRect(hwnd, c_loc(rc))         
           print *, "After GetClientRect call:"
           print *, "Return value: ", resultbool
           print *, "rc: ", rc%left, rc%top, rc%right, rc%bottom
