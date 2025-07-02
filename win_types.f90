@@ -60,13 +60,17 @@ module win_types
     type(ptr) :: hwin 
   end type
   
-  type, bind(C) :: RECT
+  type, bind(C) :: RECT_0
     integer(long) :: left
     integer(long) :: top
     integer(long) :: right
     integer(long) :: bottom
-  end type RECT
-
+  end type RECT_0
+  
+  type, bind(C) :: RECT
+    integer(4) :: left, top, right, bottom
+  end type
+  
   type, bind(C) :: PAINTSTRUCT
     type(ptr)            :: hdc            ! HDC
     integer(int32)       :: fErase         ! BOOL
