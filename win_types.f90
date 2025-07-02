@@ -61,11 +61,12 @@ module win_types
   end type
   
   type, bind(C) :: RECT
-    integer(long) :: left
-    integer(long) :: top
-    integer(long) :: right
-    integer(long) :: bottom
+    integer(int32) :: left
+    integer(int32) :: top
+    integer(int32) :: right
+    integer(int32) :: bottom
   end type RECT
+
 
   type, bind(C) :: PAINTSTRUCT
     type(ptr)            :: hdc            ! HDC

@@ -156,7 +156,23 @@ module win_api
         use standard
         type(ptr), value :: hObject
         integer(int32) :: DeleteObject
-      end function     
+      end function   
+      
+      function SendMessageW(hWnd, Msg, wParam, lParam) bind(C, name="SendMessageW")
+        use standard
+        type(ptr), value :: hWnd
+        integer(int32), value :: Msg
+        integer(i_ptr), value :: wParam
+        integer(i_ptr), value :: lParam
+        integer(i_ptr) :: SendMessageW
+      end function SendMessageW
+      
+      function Rectangle(hdc, left, top, right, bottom) bind(C, name="Rectangle")
+        use standard
+        type(ptr), value :: hdc
+        integer(int32), value :: left, top, right, bottom
+        integer(int32) :: Rectangle
+      end function
   end interface
   
 contains
@@ -174,8 +190,9 @@ contains
       integer(i_ptr) :: userData
       type(RECT), target :: rc
       integer(i_ptr) :: newLParam 
+      integer(int32) :: resultbool
       
-      
+
       select case (Msg)
       case (1)  ! WM_CREATE
         appDataPtr = transfer(lParam, c_null_ptr)
@@ -202,8 +219,12 @@ contains
           resultInvalidate = InvalidateRect(hwnd, c_null_ptr, 1)
           call MoveWindow(appDataInst%hwin, panelActualWidth, 0, &
                           width - panelActualWidth , height, .true._c_bool) 
-                    
+          call UpdateWindow(hwnd)
+    
           call MoveWindow(appDataInst%hPanel, 0, 0, panelActualWidth, height, .true._c_bool)  !<== MOVED THIS LINE HERE
+          resultbool = SendMessageW(appDataInst%hwin, WM_SIZE, 0_i_ptr, int(ior(width - panelActualWidth, ishft(height, 16)), i_ptr))
+
+
           call UpdateWindow(appDataInst%hPanel)
           call UpdateWindow(appDataInst%hwin)
       
@@ -229,7 +250,7 @@ contains
       integer(i_ptr) :: userData
       type(GraphData), pointer :: pgraphData
       type(ptr) :: pgraphDataPtr
-      
+      integer(long) :: style
       print *, "GraphWndProc called! hwnd=", transfer(hwnd, 0_i_ptr), " uMsg=", uMsg
       retval = 0
       resultInvalidate = 0
@@ -262,17 +283,50 @@ contains
           retval = 0
 
       case (WM_SIZE)
+        print *, "WM_SIZE GetClientRect HWND = ", transfer(hwnd, 0_i_ptr)
+
         resultInvalidate = InvalidateRect(hwnd, c_null_ptr, 1)
+          resultbool = GetClientRect(hwnd, c_loc(rc))
+          print *, "WM_SIZE: rc: ", rc%left, rc%top, rc%right, rc%bottom
         print *, "WM_SIZE GraphWndProc, result: ", resultInvalidate
         retval = 0
 
       case (WM_PAINT)
+          print *, "WM_PAINT GetClientRect HWND = ", transfer(hwnd, 0_i_ptr)
+          print *, "SIZEOF(rc) = ", storage_size(rc) / 8
           print *, "WM_PAINT triggered"
           hdc = BeginPaint(hwnd, c_loc(ps))
-          
-          print *, "hwnd в WM_PAINT = ", transfer(hwnd, 0_i_ptr)
+          resultbool =  Rectangle(hdc, 0, 0, 100, 100)
 
+          print *, "hwnd в WM_PAINT = ", transfer(hwnd, 0_i_ptr)
+        
+          style = GetWindowLongPtrW(hwnd, -16) ! GWL_STYLE = -16
+          print *, "Window style = ", style
+          
+          print *, "int32 kind = ", kind(0_int32)
+          print *, "c_int32_t kind = ", kind(0_c_int32_t)
+
+          
+          
+          print *, "/________________________________________________________________________________________"
+          rc%left = -1111
+          rc%top = -2222
+          rc%right = -3333
+          rc%bottom = -4444          
           resultbool = GetClientRect(hwnd, c_loc(rc))
+          print *, "After GetClientRect call:"
+          print *, "Return value: ", resultbool
+          print *, "rc: ", rc%left, rc%top, rc%right, rc%bottom
+          print *, "sizeof(rc):", c_sizeof(rc)
+          print *, "addr rc    :", transfer(c_loc(rc), 0_i_ptr)
+          print *, "/________________________________________________________________________________________"
+          
+            if (resultbool == 0) then
+                errorCode = GetLastError()
+                print *, "GetClientRect failed! Error code: ", errorCode
+            else
+                print *, "GetClientRect succeeded. rc: ", rc%left, rc%top, rc%right, rc%bottom
+            end if
           print *, "GetClientRect result = ", resultbool
           print *, "rc: ", rc%left, rc%top, rc%right, rc%bottom 
           
