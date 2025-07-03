@@ -109,11 +109,12 @@ module win_api
     end function
     
     function GetClientRect(hWnd, lpRect) bind(C, name="GetClientRect")
-      use standard
-      type(ptr), value   :: hWnd
-      type(ptr)          :: lpRect
-      integer(int32)     :: GetClientRect
+      use iso_c_binding, only: c_ptr, c_int32_t
+      type(c_ptr), value :: hWnd     ! HWND
+      type(c_ptr), value :: lpRect   ! LPRECT
+      integer(c_int32_t) :: GetClientRect
     end function
+
     
     function InvalidateRect(hWnd, lpRect, bErase) bind(C, name="InvalidateRect")
       use standard
@@ -192,7 +193,8 @@ contains
       integer(i_ptr) :: newLParam 
       integer(int32) :: resultbool
       
-
+      type(RECT), target :: rcc
+      !print *, "GraphWndProc called! hwnd=", transfer(hwnd, 0_i_ptr), " uMsg=", uMsg
       select case (Msg)
       case (1)  ! WM_CREATE
         appDataPtr = transfer(lParam, c_null_ptr)
@@ -202,6 +204,7 @@ contains
         ! Window close message — end message loop
         call PostQuitMessage(0)
         res = 0       
+    
           
       case (WM_SIZE) 
         resultbool = GetClientRect(hwnd, c_loc(rc))
@@ -245,6 +248,7 @@ contains
       type(ptr), value :: hwnd
       type(PAINTSTRUCT), target :: ps
       type(RECT), target :: rc
+      type(RECT), target :: rcc
       type(ptr) :: hdc
       integer(int32), value :: uMsg
       integer(i_ptr), value :: wParam, lParam
@@ -255,9 +259,13 @@ contains
       type(GraphData), pointer :: pgraphData
       type(ptr) :: pgraphDataPtr
       integer(c_long) :: style
-      print *, "GraphWndProc called! hwnd=", transfer(hwnd, 0_i_ptr), " uMsg=", uMsg
+      !!!!!!!!!!!!!print *, "GraphWndProc called! hwnd=", transfer(hwnd, 0_i_ptr), " uMsg=", uMsg
       retval = 0
       resultInvalidate = 0
+        rcc%left   = 10
+        rcc%top    = 20
+        rcc%right  = 100
+        rcc%bottom = 200
 
       select case (uMsg)     
       case (1)  ! WM_CREATE
@@ -298,6 +306,9 @@ contains
         retval = 0
 
       case (WM_PAINT)
+          !resultInvalidate = InvalidateRect(hwnd, c_null_ptr, 1)
+          res = GetClientRect(hwnd, c_loc(rcc))
+          print *, "rcс for canvas:", rcc%left, rcc%top, rcc%right, rcc%bottom
           print *, "sizeof(RECT):", c_sizeof(rc)
           print *, "WM_PAINT GetClientRect HWND = ", transfer(hwnd, 0_i_ptr)
           print *, "SIZEOF(rc) = ", storage_size(rc) / 8
