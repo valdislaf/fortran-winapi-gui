@@ -111,7 +111,7 @@ module win_api
     function GetClientRect(hWnd, lpRect) bind(C, name="GetClientRect")
       use standard
       type(ptr), value   :: hWnd
-      type(ptr)          :: lpRect
+      type(ptr), value   :: lpRect
       integer(int32)     :: GetClientRect
     end function
     
