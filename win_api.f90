@@ -207,34 +207,29 @@ contains
     
           
       case (WM_SIZE) 
-        resultbool = GetClientRect(hwnd, c_loc(rc))
-        print *, "====>>  ===>> ===>>WndProc WM_SIZE: rc: ", rc%left, rc%top, rc%right, rc%bottom
-        print *, "====>>  ===>> ===>>WndProc WM_SIZE GetClientRect HWND = ", transfer(hwnd, 0_i_ptr)
-
           ! Window resize message
           lp32 = transfer(lParam, int32)
           width  = iand(lp32, 65535)              ! window width = lower 16 bits
           height = iand(ishft(lp32, -16), 65535)  ! window height = upper 16 bits
-          print *, "New size: ", width, "x", height
+          
 
           panelActualWidth = max(80, width / 10)
           userData = GetWindowLongPtrW(hWnd, -21)
           appDataPtr = transfer(userData, appDataPtr)
           call c_f_pointer(appDataPtr, appDataInst)
           
-          print *, panelActualWidth, width - panelActualWidth, height
           resultInvalidate = InvalidateRect(hwnd, c_null_ptr, 1)
           call MoveWindow(appDataInst%hwin, panelActualWidth, 0, &
                           width - panelActualWidth , height, .true._c_bool) 
-          call UpdateWindow(hwnd)
+          
     
           call MoveWindow(appDataInst%hPanel, 0, 0, panelActualWidth, height, .true._c_bool)  !<== MOVED THIS LINE HERE
           resultbool = SendMessageW(appDataInst%hwin, WM_SIZE, 0_i_ptr, int(ior(width - panelActualWidth, ishft(height, 16)), i_ptr))
 
-
+          call UpdateWindow(hwnd)
           call UpdateWindow(appDataInst%hPanel)
           call UpdateWindow(appDataInst%hwin)
-      
+          
           res = 0  ! ← required
 
       case default
@@ -262,106 +257,38 @@ contains
       !!!!!!!!!!!!!print *, "GraphWndProc called! hwnd=", transfer(hwnd, 0_i_ptr), " uMsg=", uMsg
       retval = 0
       resultInvalidate = 0
-        rcc%left   = 10
-        rcc%top    = 20
-        rcc%right  = 100
-        rcc%bottom = 200
-
+      
       select case (uMsg)     
       case (1)  ! WM_CREATE
         allocate(pgraphData)
-        !pgraphData%hbrush = CreateSolidBrush(MakeARGB(0, 255, 0, 255))  ! Фиолетовая кисть
-        pgraphData%hbrush = CreateSolidBrush(int(Z'000000FF', int32))  ! R=255
+        pgraphData%hbrush = CreateSolidBrush(MakeARGB(0, 102, 0, 51))  ! Фиолетовая кисть
+        !pgraphData%hbrush = CreateSolidBrush(int(Z'000000FF', int32))  ! R=255
         pgraphDataPtr = c_loc(pgraphData)
         call SetWindowLongPtrW(hwnd, 0, transfer(pgraphDataPtr, 0_i_ptr))
-        print *, "SetWindowLongPtrW done"
-  retval = 0
         retval = 0
 
       case (WM_DESTROY)
-          userData = GetWindowLongPtrW(hwnd, 0)
-          if (userData /= 0) then
-            pgraphDataPtr = transfer(userData, c_null_ptr)
-            call c_f_pointer(pgraphDataPtr, pgraphData)
-            if (associated(pgraphData)) then
-              resultbool = DeleteObject(pgraphData%hbrush)
-              deallocate(pgraphData)
-            else
-              print *, "GraphData not associated in WM_DESTROY"
-            end if
-          else
-            print *, "userData == 0 in WM_DESTROY"
-          end if
           retval = 0
 
       case (WM_SIZE)
-        resultbool = GetClientRect(hwnd, c_loc(rc))
-        print *, "WM_SIZE: rc: ", rc%left, rc%top, rc%right, rc%bottom
-        print *, "WM_SIZE GetClientRect HWND = ", transfer(hwnd, 0_i_ptr)
-
-        resultInvalidate = InvalidateRect(hwnd, c_null_ptr, 1)
-          resultbool = GetClientRect(hwnd, c_loc(rc))
-          print *, "WM_SIZE: rc: ", rc%left, rc%top, rc%right, rc%bottom
-        print *, "WM_SIZE GraphWndProc, result: ", resultInvalidate
-        retval = 0
+          retval = 0
 
       case (WM_PAINT)
           !resultInvalidate = InvalidateRect(hwnd, c_null_ptr, 1)
           res = GetClientRect(hwnd, c_loc(rcc))
-          print *, "rcс for canvas:", rcc%left, rcc%top, rcc%right, rcc%bottom
-          print *, "sizeof(RECT):", c_sizeof(rc)
-          print *, "WM_PAINT GetClientRect HWND = ", transfer(hwnd, 0_i_ptr)
-          print *, "SIZEOF(rc) = ", storage_size(rc) / 8
-          print *, "WM_PAINT triggered"
-          hdc = BeginPaint(hwnd, c_loc(ps))
-          resultbool =  Rectangle(hdc, 0, 0, 100, 100)
-
-          print *, "hwnd в WM_PAINT = ", transfer(hwnd, 0_i_ptr)
         
-          style = GetWindowLongPtrW(hwnd, -16) ! GWL_STYLE = -16
-          print *, "Window style = ", style
-          
-          print *, "int32 kind = ", kind(0_int32)
-          print *, "c_int32_t kind = ", kind(0_c_int32_t)
+          hdc = BeginPaint(hwnd, c_loc(ps))
+          !resultbool =  Rectangle(hdc, 0, 0, 100, 100)
 
-          
-          
-          print *, "/________________________________________________________________________________________"
-          rc%left = -1111
-          rc%top = -2222
-          rc%right = -3333
-          rc%bottom = -4444          
-          resultbool = GetClientRect(hwnd, c_loc(rc))         
-          print *, "After GetClientRect call:"
-          print *, "Return value: ", resultbool
-          print *, "rc: ", rc%left, rc%top, rc%right, rc%bottom
-          print *, "sizeof(rc):", c_sizeof(rc)
-          print *, "addr rc    :", transfer(c_loc(rc), 0_i_ptr)
-          print *, "/________________________________________________________________________________________"
-          
-            if (resultbool == 0) then
-                errorCode = GetLastError()
-                print *, "GetClientRect failed! Error code: ", errorCode
-            else
-                print *, "GetClientRect succeeded. rc: ", rc%left, rc%top, rc%right, rc%bottom
-            end if
-          print *, "GetClientRect result = ", resultbool
-          print *, "rc: ", rc%left, rc%top, rc%right, rc%bottom 
-          
+          resultbool = GetClientRect(hwnd, c_loc(rc))
           userData = GetWindowLongPtrW(hwnd, 0)
           if (userData /= 0) then
             pgraphDataPtr = transfer(userData, c_null_ptr)
             call c_f_pointer(pgraphDataPtr, pgraphData)
             if (associated(pgraphData)) then
               resultbool = FillRect(hdc, c_loc(rc), pgraphData%hbrush)
-            else
-              print *, "pgraphData not associated!"
             end if
-          else
-            print *, "userData == 0, skipping FillRect"
           end if
-          print *, "rc: ", rc%left, rc%top, rc%right, rc%bottom
-          
           resultbool = EndPaint(hwnd, c_loc(ps))
           retval = 0
 

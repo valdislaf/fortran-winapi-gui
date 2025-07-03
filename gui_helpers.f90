@@ -121,15 +121,6 @@ contains
 
     hGraph = CreateWindowExW(0, c_loc(graphClassW(1)), nullptr, &
              WS_CHILD_VISIBLE, x, y, width, height, hwndParent, nullptr, hInstance, nullptr)
-
-    print *, "hGraph HWND (handle):", transfer(hGraph, 0_i_ptr)
-
-    ! Проверка GetClientRect сразу после создания
-    
-    rc%left = -9876; rc%top = -5432; rc%right = -4321; rc%bottom = -8765
-    res = GetClientRect(hGraph, c_loc(rc))
-    print *, "GetClientRect in create_graph_window: res=", res, " rc=", rc%left, rc%top, rc%right, rc%bottom
-    
   end subroutine create_graph_window
   
   ! Creates a button in the specified parent window
