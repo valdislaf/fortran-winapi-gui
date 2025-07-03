@@ -1,7 +1,7 @@
 ! WinAPI types and constants
 module win_types
   use iso_c_binding, only: int32 => c_int32_t, i_ptr => c_intptr_t, ptr => c_ptr, f_ptr => c_funptr, &
-      nullptr => c_null_ptr, char => c_char, char0 => c_null_char, bool => c_bool, long => c_long
+      nullptr => c_null_ptr, char => c_char, char0 => c_null_char, bool => c_bool, long => c_long,c_long
   implicit none
  
  ! Constants for windows and messages
@@ -68,7 +68,7 @@ module win_types
   end type RECT_0
   
   type, bind(C) :: RECT
-    integer(4) :: left, top, right, bottom
+    integer(c_long) :: left, top, right, bottom
   end type
   
   type, bind(C) :: PAINTSTRUCT
