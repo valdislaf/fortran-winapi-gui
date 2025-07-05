@@ -254,7 +254,7 @@ contains
       select case (uMsg)     
       case (1)  ! WM_CREATE
         allocate(pgraphData)
-        pgraphData%hbrush = CreateSolidBrush(MakeARGB(100, 102, 0, 51))  ! Фиолетовая кисть
+        pgraphData%hbrush = CreateSolidBrush(MakeARGB(0, 102, 0, 51))  ! Фиолетовая кисть
         !pgraphData%hbrush = CreateSolidBrush(int(Z'000000FF', int32))  ! R=255
         pgraphDataPtr = c_loc(pgraphData)
         call SetWindowLongPtrW(hwnd, 0, transfer(pgraphDataPtr, 0_i_ptr))
