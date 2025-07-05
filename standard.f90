@@ -1,4 +1,4 @@
-﻿! Общие типы и утилиты
+﻿! Common types and utilities
 module standard
   use iso_c_binding
   use win_types
