@@ -1,10 +1,10 @@
-! Типы и константы WinAPI
+! WinAPI types and constants
 module win_types
   use iso_c_binding, only: int32 => c_int32_t, i_ptr => c_intptr_t, ptr => c_ptr, f_ptr => c_funptr, &
-      nullptr => c_null_ptr, char => c_char, char0 => c_null_char, bool => c_bool, long => c_long
+      nullptr => c_null_ptr, char => c_char, char0 => c_null_char, bool => c_bool, c_long!, long => c_long
   implicit none
-  
-  ! Константы для окон и сообщений
+ 
+ ! Constants for windows and messages
   integer(int32), parameter :: WS_OVERLAPPEDWINDOW = 13565952     ! 0x00CF0000
   integer(int32), parameter :: WS_VISIBLE          = 268435456    ! 0x10000000
   integer(int32), parameter :: WS_CHILD            = 1073741824   ! 0x40000000
@@ -12,22 +12,24 @@ module win_types
   integer(int32), parameter :: SW_SHOW             = 5
   integer(int32), parameter :: IMAGE_ICON          = 1
   integer(int32), parameter :: LR_LOADFROMFILE     = 16
-
-  ! Сообщения Windows
+  integer(int32), parameter :: ID_ARROW = 32512 ! Cursor identifier (arrow)
+  
+  ! Windows messages
+  integer(int32), parameter :: WM_CREATE           = 1
   integer(int32), parameter :: WM_DESTROY          = 2
   integer(int32), parameter :: WM_SIZE             = 5
   integer(int32), parameter :: WM_COMMAND          = 273          ! 0x0111
-  integer(int32), parameter :: WM_PAINT = 15
-
-  ! Стиль кнопок
+  integer(int32), parameter :: WM_PAINT            = 15
+  
+  ! Button styles
   integer(int32), parameter :: BS_PUSHBUTTON       = 0
   integer(int32), parameter :: BS_DEFPUSHBUTTON    = 1
 
-  ! Идентификаторы управляющих элементов
+  ! Control element identifiers
   integer(i_ptr), parameter :: ID_BUTTON1        = 1001
   integer(i_ptr), parameter :: ID_BUTTON2        = 1002
 
-  ! Структура класса окна
+  ! Window class structure
   type, bind(C) :: WNDCLASSEX
     integer(int32)     :: cbSize
     integer(int32)     :: style
@@ -43,7 +45,7 @@ module win_types
     type(ptr)        :: hIconSm
   end type
 
-  ! Структура сообщения
+  ! Message structure
   type, bind(C) :: MSG_T
     type(ptr)         :: hwnd
     integer(int32)      :: message
@@ -53,15 +55,33 @@ module win_types
     type(ptr)         :: pt
   end type
 
-  !Создаем структуру для передачи hPanel
+  ! Create a structure to pass hPanel
   type, bind(C) :: AppData
     type(ptr) :: hPanel
     type(ptr) :: hwin 
   end type
   
   type, bind(C) :: RECT
-      integer(long) :: left, top, right, bottom
-  end type
+    integer(c_long) :: left
+    integer(c_long) :: top
+    integer(c_long) :: right
+    integer(c_long) :: bottom
+  end type RECT
+
+
+
+  type, bind(C) :: PAINTSTRUCT
+    type(ptr)            :: hdc            ! HDC
+    integer(int32)       :: fErase         ! BOOL
+    type(RECT)           :: rcPaint
+    integer(int32)       :: fRestore
+    integer(int32)       :: fIncUpdate
+    character(1)         :: rgbReserved(32)
+  end type PAINTSTRUCT
+  
+  type :: GraphData
+    type(ptr) :: hbrush
+  end type GraphData
 
 
 end module win_types

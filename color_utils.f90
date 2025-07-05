@@ -1,4 +1,4 @@
-! Утилита для преобразования компонентов A, R, G, B в формат COLORREF (ARGB)
+! Utility for converting A, R, G, B components to COLORREF (ARGB) format
 module color_utils
   use win_types
   

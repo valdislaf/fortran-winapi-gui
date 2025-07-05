@@ -1,4 +1,4 @@
-! Интерфейсы к функциям WinAPI
+! Interfaces to WinAPI functions
 module win_api
   interface
     function RegisterClassExW(lpWndClass) bind(C, name="RegisterClassExW")
@@ -80,12 +80,13 @@ module win_api
       integer(int32), value :: nExitCode
     end subroutine
 
-    subroutine MoveWindow(hWnd, X, Y, nWidth, nHeight, bRepaint) bind(C, name="MoveWindow")
-      use iso_c_binding
-      type(c_ptr), value :: hWnd
-      integer(c_int32_t), value :: X, Y, nWidth, nHeight
-      logical(c_bool), value :: bRepaint
+    subroutine MoveWindow(hWnd, X, Y, nW, nH, bRepaint) bind(C, name="MoveWindow")
+      use standard
+      type(ptr), value        :: hWnd
+      integer(int32), value :: X, Y, nW, nH
+      integer(int32), value :: bRepaint
     end subroutine
+
     
     function GetWindowLongPtrW(hWnd, nIndex) bind(C, name="GetWindowLongPtrW")
       use standard
@@ -105,28 +106,80 @@ module win_api
       use standard
       type(ptr), value :: hWnd
       type(ptr) :: lpRect
-      logical(c_bool) :: GetWindowRect
+      logical(bool) :: GetWindowRect
     end function
     
     function GetClientRect(hWnd, lpRect) bind(C, name="GetClientRect")
-      use standard
-      type(ptr), value :: hWnd
-      type(ptr) :: lpRect
-      logical(bool) :: GetClientRect
+      use iso_c_binding, only: c_ptr, c_int32_t
+      type(c_ptr), value :: hWnd     ! HWND
+      type(c_ptr), value :: lpRect   ! LPRECT
+      integer(c_int32_t) :: GetClientRect
     end function
+
     
     function InvalidateRect(hWnd, lpRect, bErase) bind(C, name="InvalidateRect")
       use standard
       type(ptr), value :: hWnd        ! HWND
-      type(ptr), value :: lpRect      ! LPRECT, может быть c_null_ptr
-      integer(int32), value :: bErase ! BOOL (1 или 0)
-      integer(int32) :: InvalidateRect ! BOOL (0 — ошибка, не 0 — успех)
+      type(ptr), value :: lpRect      ! LPRECT, can be c_null_ptr
+      integer(int32), value :: bErase ! BOOL (1 or 0)
+      integer(int32) :: InvalidateRect ! BOOL (0 — error, not 0 — success)
     end function
+    
+    function LoadCursorW(hInstance, lpCursorName) bind(C, name="LoadCursorW")
+      use standard
+      type(ptr), value :: hInstance
+      type(ptr), value :: lpCursorName
+      type(ptr) :: LoadCursorW
+    end function    
+   
+    function BeginPaint(hWnd, lpPaint) bind(C, name="BeginPaint")
+      use standard
+      type(ptr), value        :: hWnd
+      type(ptr)               :: lpPaint
+      type(ptr)               :: BeginPaint  ! возвращает HDC
+    end function 
 
-     
+      function EndPaint(hWnd, lpPaint) bind(C, name="EndPaint")
+        use standard
+        type(ptr), value :: hWnd
+        type(ptr), value :: lpPaint
+        integer(int32)      :: EndPaint    ! возвращает BOOL
+      end function
+
+      function FillRect(hdc, lprc, hbr) bind(C, name="FillRect")
+        use standard
+        type(ptr), value :: hdc     ! HDC
+        type(ptr), value :: lprc    ! const RECT*
+        type(ptr), value :: hbr     ! HBRUSH
+        integer(int32)     :: FillRect
+      end function
+
+      function DeleteObject(hObject) bind(C, name="DeleteObject")
+        use standard
+        type(ptr), value :: hObject
+        integer(int32) :: DeleteObject
+      end function   
+      
+      function SendMessageW(hWnd, Msg, wParam, lParam) bind(C, name="SendMessageW")
+        use standard
+        type(ptr), value :: hWnd
+        integer(int32), value :: Msg
+        integer(i_ptr), value :: wParam
+        integer(i_ptr), value :: lParam
+        integer(i_ptr) :: SendMessageW
+      end function SendMessageW
+      
+      function Rectangle(hdc, left, top, right, bottom) bind(C, name="Rectangle")
+        use standard
+        type(ptr), value :: hdc
+        integer(int32), value :: left, top, right, bottom
+        integer(int32) :: Rectangle
+      end function
   end interface
+  
 contains
-    ! Обработчик сообщений окна (WndProc)
+
+    ! Window message handler (WndProc)
     function WndProc(hWnd, Msg, wParam, lParam) bind(C) result(res)      
       use standard      
       type(AppData), pointer :: appDataInst
@@ -137,80 +190,105 @@ contains
       integer(int32)          :: width, height, lp32, panelActualWidth
       type(c_ptr) :: appDataPtr    
       integer(i_ptr) :: userData
-      type(RECT), target :: rc
-      logical(bool) :: ok
-      integer(i_ptr) :: newLParam
-      
-      integer(int32) :: resultSendMessageW
+      !integer(int32) :: resultbool
+      integer(i_ptr) :: resultInvalidate
+      !logical(c_bool) :: settrue
       
       select case (Msg)
-      case (1)  ! WM_CREATE
+      case (WM_CREATE) 
         appDataPtr = transfer(lParam, c_null_ptr)
         call SetWindowLongPtrW(hWnd, -21, transfer(appDataPtr, 0_i_ptr))
         res = 0
-      case (WM_DESTROY)
-        ! Сообщение о закрытии окна — завершить цикл сообщений
-        call PostQuitMessage(0)
-        res = 0       
-          
-      case (WM_SIZE)       
-          ! Сообщение об изменении размера окна
+      case (WM_DESTROY)       
+        call PostQuitMessage(0) 
+        res = 0           
+      case (WM_SIZE) 
+          ! Window resize message
           lp32 = transfer(lParam, int32)
-          width  = iand(lp32, 65535)              ! ширина окна = младшие 16 бит
-          height = iand(ishft(lp32, -16), 65535)  ! высота окна = старшие 16 бит
-          print *, "New size: ", width, "x", height
+          width  = iand(lp32, 65535)              ! window width = lower 16 bits
+          height = iand(ishft(lp32, -16), 65535)  ! window height = upper 16 bits
+          !settrue = .true._c_bool
 
           panelActualWidth = max(80, width / 10)
           userData = GetWindowLongPtrW(hWnd, -21)
           appDataPtr = transfer(userData, appDataPtr)
           call c_f_pointer(appDataPtr, appDataInst)
           
-          print *, panelActualWidth, width - panelActualWidth, height
-          resultInvalidate = InvalidateRect(hwnd, c_null_ptr, 1)
+          resultInvalidate = InvalidateRect(hwnd, nullptr, 1)
+          resultInvalidate = InvalidateRect(appDataInst%hwin, nullptr, 1)
+          resultInvalidate = InvalidateRect(appDataInst%hPanel, nullptr, 1)
           call MoveWindow(appDataInst%hwin, panelActualWidth, 0, &
-                          width - panelActualWidth , height, .true._c_bool) 
-                    
-          call MoveWindow(appDataInst%hPanel, 0, 0, panelActualWidth, height, .true._c_bool)  !<== ПЕРЕМЕСТИЛ СТРОКУ СЮДА
-          call UpdateWindow(appDataInst%hPanel)
-          call UpdateWindow(appDataInst%hwin)
-      
-          res = 0  ! ← обязательно
+                         width - panelActualWidth , height, 1)
+          call MoveWindow(appDataInst%hPanel, 0, 0, &
+                         panelActualWidth , height, 1)
+          
+          
+          res = 0  ! ← required
 
       case default
-        ! Все остальные сообщения — стандартная обработка
+        ! All other messages — default processing
         res = DefWindowProcW(hWnd, Msg, wParam, lParam)
       end select
     end function WndProc
-    
+   
     function GraphWndProc(hwnd, uMsg, wParam, lParam) bind(C, name="GraphWndProc") result(retval)
-       use standard
-      ! Аргументы, как требует WinAPI
+      use standard
       type(ptr), value :: hwnd
+      type(PAINTSTRUCT), target :: ps
+      type(RECT), target :: rc
+      !type(RECT), target :: rcc
+      type(ptr) :: hdc
       integer(int32), value :: uMsg
       integer(i_ptr), value :: wParam, lParam
       integer(i_ptr) :: retval
-      integer(int32)          :: width, height, lp32, panelActualWidth
-      integer(int32) :: resultInvalidate
-      ! Константы сообщений     
-      integer(i_ptr), parameter :: TRUE = 1, FALSE = 0
+      integer(int32) :: resultbool
+      integer(i_ptr) :: resultInvalidate
+      integer(i_ptr) :: userData
+      type(GraphData), pointer :: pgraphData
+      type(ptr) :: pgraphDataPtr
+      !integer(c_long) :: style
+      !!!!!!!!!!!!!print *, "GraphWndProc called! hwnd=", transfer(hwnd, 0_i_ptr), " uMsg=", uMsg
       retval = 0
       resultInvalidate = 0
-      !print *, "GraphWndProc called: uMsg =", uMsg
+      
+      select case (uMsg)     
+      case (1)  ! WM_CREATE
+        allocate(pgraphData)
+        pgraphData%hbrush = CreateSolidBrush(MakeARGB(100, 102, 0, 51))  ! Фиолетовая кисть
+        !pgraphData%hbrush = CreateSolidBrush(int(Z'000000FF', int32))  ! R=255
+        pgraphDataPtr = c_loc(pgraphData)
+        call SetWindowLongPtrW(hwnd, 0, transfer(pgraphDataPtr, 0_i_ptr))
+        retval = 0
 
-      select case (uMsg)
+      case (WM_DESTROY)
+          retval = 0
+
       case (WM_SIZE)
-        resultInvalidate = InvalidateRect(hwnd, c_null_ptr, 1)
-        print *, "WM_SIZE GraphWndProc, result: ", resultInvalidate
-        print *, "GraphWndProc got WM_SIZE"
-        retval = 0
-          
+          retval = 0
+
       case (WM_PAINT)
-        !print *, "Graph window WM_PAINT"
-        retval = 0
+          !resultInvalidate = InvalidateRect(hwnd, c_null_ptr, 1)
+          !res = GetClientRect(hwnd, c_loc(rcc))
+        
+          hdc = BeginPaint(hwnd, c_loc(ps))
+          !resultbool =  Rectangle(hdc, 0, 0, 100, 100)
+
+          resultbool = GetClientRect(hwnd, c_loc(rc))
+          userData = GetWindowLongPtrW(hwnd, 0)
+          if (userData /= 0) then
+            pgraphDataPtr = transfer(userData, nullptr)
+            call c_f_pointer(pgraphDataPtr, pgraphData)
+            if (associated(pgraphData)) then
+              resultbool = FillRect(hdc, c_loc(rc), pgraphData%hbrush)
+            end if
+          end if
+          resultbool = EndPaint(hwnd, c_loc(ps))
+          retval = 0
+
       case default
-        ! Вызов стандартного обработчика, если сообщение не обработано
         retval = DefWindowProcW(hwnd, uMsg, wParam, lParam)
       end select
     end function GraphWndProc
+
 
 end module win_api
