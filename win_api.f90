@@ -246,6 +246,8 @@ contains
       integer(i_ptr) :: userData
       type(GraphData), pointer :: pgraphData
       type(ptr) :: pgraphDataPtr
+      type(RECT), target :: rcSmall
+      type(ptr) :: hRedBrush
       !integer(c_long) :: style
       !!!!!!!!!!!!!print *, "GraphWndProc called! hwnd=", transfer(hwnd, 0_i_ptr), " uMsg=", uMsg
       retval = 0
@@ -282,6 +284,29 @@ contains
               resultbool = FillRect(hdc, c_loc(rc), pgraphData%hbrush)
             end if
           end if
+          
+          
+          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+          ! --- 2) Подготовим «маленький» RECT 2×2 пикселя ---
+          
+          rcSmall%left   = rc%left + 10            ! например, сместим +10px по X
+          rcSmall%top    = rc%top  + 10            ! и +10px по Y
+          rcSmall%right  = rcSmall%left + 2
+          rcSmall%bottom = rcSmall%top  + 2
+
+          ! --- 3) Создадим кисть красного цвета ---
+          ! MakeARGB(0, R, G, B) — R=255,G=0,B=0 → чистый красный
+          
+          hRedBrush = CreateSolidBrush(MakeARGB(0, 0, 0, 255))
+
+          ! --- 4) Закрасим маленький квадрат красной кистью ---
+          resultbool = FillRect(hdc, c_loc(rcSmall), hRedBrush)
+
+          ! --- 5) Удалим временную кисть, чтобы не было утечки GDI-объектов ---
+          resultbool = DeleteObject(hRedBrush)
+          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+          
+          
           resultbool = EndPaint(hwnd, c_loc(ps))
           retval = 0
 
