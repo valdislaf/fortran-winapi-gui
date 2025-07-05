@@ -85,7 +85,8 @@ contains
   end subroutine create_panel_window
 
   ! Registers and creates a graphics widget for 2D plotting
-  subroutine create_graph_window(hGraph, hwndParent, hInstance, hPanelBrush, wcxGraph, regResult, graphClassW, cursorPathW, x, y, width, height)
+  subroutine create_graph_window(hGraph, hwndParent, hInstance, hPanelBrush, wcxGraph, &
+             regResult, graphClassW, cursorPathW, x, y, width, height)
     type(ptr), intent(out)        :: hGraph           ! Graphics window handle
     type(ptr), intent(in)         :: hwndParent, hInstance    
     type(ptr), intent(in)         :: hPanelBrush           ! Background brush
@@ -95,8 +96,8 @@ contains
     integer(int32), intent(in)      :: x, y, width, height
     character(kind=char), intent(in), target ::  cursorPathW(:)  ! Cursor 
     type(ptr) :: tmp_ptr
-    type(RECT), target :: rc
-    integer(int32) :: res
+    !type(RECT), target :: rc
+    !integer(int32) :: res
     
     wcxGraph%cbSize             = c_sizeof(wcxGraph)
     wcxGraph%style              = 0

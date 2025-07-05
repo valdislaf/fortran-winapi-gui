@@ -15,10 +15,11 @@ module win_types
   integer(int32), parameter :: ID_ARROW = 32512 ! Cursor identifier (arrow)
   
   ! Windows messages
+  integer(int32), parameter :: WM_CREATE           = 1
   integer(int32), parameter :: WM_DESTROY          = 2
   integer(int32), parameter :: WM_SIZE             = 5
   integer(int32), parameter :: WM_COMMAND          = 273          ! 0x0111
-  integer(int32), parameter :: WM_PAINT = 15
+  integer(int32), parameter :: WM_PAINT            = 15
   
   ! Button styles
   integer(int32), parameter :: BS_PUSHBUTTON       = 0

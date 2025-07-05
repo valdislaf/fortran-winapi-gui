@@ -80,12 +80,13 @@ module win_api
       integer(int32), value :: nExitCode
     end subroutine
 
-    subroutine MoveWindow(hWnd, X, Y, nWidth, nHeight, bRepaint) bind(C, name="MoveWindow")
-      use iso_c_binding
-      type(c_ptr), value :: hWnd
-      integer(c_int32_t), value :: X, Y, nWidth, nHeight
-      logical(c_bool), value :: bRepaint
+    subroutine MoveWindow(hWnd, X, Y, nW, nH, bRepaint) bind(C, name="MoveWindow")
+      use standard
+      type(ptr), value        :: hWnd
+      integer(int32), value :: X, Y, nW, nH
+      integer(int32), value :: bRepaint
     end subroutine
+
     
     function GetWindowLongPtrW(hWnd, nIndex) bind(C, name="GetWindowLongPtrW")
       use standard
@@ -189,46 +190,38 @@ contains
       integer(int32)          :: width, height, lp32, panelActualWidth
       type(c_ptr) :: appDataPtr    
       integer(i_ptr) :: userData
-      type(RECT), target :: rc
-      integer(i_ptr) :: newLParam 
-      integer(int32) :: resultbool
+      !integer(int32) :: resultbool
+      integer(i_ptr) :: resultInvalidate
+      !logical(c_bool) :: settrue
       
-      type(RECT), target :: rcc
-      !print *, "GraphWndProc called! hwnd=", transfer(hwnd, 0_i_ptr), " uMsg=", uMsg
       select case (Msg)
-      case (1)  ! WM_CREATE
+      case (WM_CREATE) 
         appDataPtr = transfer(lParam, c_null_ptr)
         call SetWindowLongPtrW(hWnd, -21, transfer(appDataPtr, 0_i_ptr))
         res = 0
-      case (WM_DESTROY)
-        ! Window close message — end message loop
-        call PostQuitMessage(0)
-        res = 0       
-    
-          
+      case (WM_DESTROY)       
+        call PostQuitMessage(0) 
+        res = 0           
       case (WM_SIZE) 
           ! Window resize message
           lp32 = transfer(lParam, int32)
           width  = iand(lp32, 65535)              ! window width = lower 16 bits
           height = iand(ishft(lp32, -16), 65535)  ! window height = upper 16 bits
-          
+          !settrue = .true._c_bool
 
           panelActualWidth = max(80, width / 10)
           userData = GetWindowLongPtrW(hWnd, -21)
           appDataPtr = transfer(userData, appDataPtr)
           call c_f_pointer(appDataPtr, appDataInst)
           
-          resultInvalidate = InvalidateRect(hwnd, c_null_ptr, 1)
+          resultInvalidate = InvalidateRect(hwnd, nullptr, 1)
+          resultInvalidate = InvalidateRect(appDataInst%hwin, nullptr, 1)
+          resultInvalidate = InvalidateRect(appDataInst%hPanel, nullptr, 1)
           call MoveWindow(appDataInst%hwin, panelActualWidth, 0, &
-                          width - panelActualWidth , height, .true._c_bool) 
+                         width - panelActualWidth , height, 1)
+          call MoveWindow(appDataInst%hPanel, 0, 0, &
+                         panelActualWidth , height, 1)
           
-    
-          call MoveWindow(appDataInst%hPanel, 0, 0, panelActualWidth, height, .true._c_bool)  !<== MOVED THIS LINE HERE
-          resultbool = SendMessageW(appDataInst%hwin, WM_SIZE, 0_i_ptr, int(ior(width - panelActualWidth, ishft(height, 16)), i_ptr))
-
-          call UpdateWindow(hwnd)
-          call UpdateWindow(appDataInst%hPanel)
-          call UpdateWindow(appDataInst%hwin)
           
           res = 0  ! ← required
 
@@ -243,7 +236,7 @@ contains
       type(ptr), value :: hwnd
       type(PAINTSTRUCT), target :: ps
       type(RECT), target :: rc
-      type(RECT), target :: rcc
+      !type(RECT), target :: rcc
       type(ptr) :: hdc
       integer(int32), value :: uMsg
       integer(i_ptr), value :: wParam, lParam
@@ -253,7 +246,7 @@ contains
       integer(i_ptr) :: userData
       type(GraphData), pointer :: pgraphData
       type(ptr) :: pgraphDataPtr
-      integer(c_long) :: style
+      !integer(c_long) :: style
       !!!!!!!!!!!!!print *, "GraphWndProc called! hwnd=", transfer(hwnd, 0_i_ptr), " uMsg=", uMsg
       retval = 0
       resultInvalidate = 0
@@ -261,7 +254,7 @@ contains
       select case (uMsg)     
       case (1)  ! WM_CREATE
         allocate(pgraphData)
-        pgraphData%hbrush = CreateSolidBrush(MakeARGB(0, 102, 0, 51))  ! Фиолетовая кисть
+        pgraphData%hbrush = CreateSolidBrush(MakeARGB(100, 102, 0, 51))  ! Фиолетовая кисть
         !pgraphData%hbrush = CreateSolidBrush(int(Z'000000FF', int32))  ! R=255
         pgraphDataPtr = c_loc(pgraphData)
         call SetWindowLongPtrW(hwnd, 0, transfer(pgraphDataPtr, 0_i_ptr))
@@ -275,7 +268,7 @@ contains
 
       case (WM_PAINT)
           !resultInvalidate = InvalidateRect(hwnd, c_null_ptr, 1)
-          res = GetClientRect(hwnd, c_loc(rcc))
+          !res = GetClientRect(hwnd, c_loc(rcc))
         
           hdc = BeginPaint(hwnd, c_loc(ps))
           !resultbool =  Rectangle(hdc, 0, 0, 100, 100)
@@ -283,7 +276,7 @@ contains
           resultbool = GetClientRect(hwnd, c_loc(rc))
           userData = GetWindowLongPtrW(hwnd, 0)
           if (userData /= 0) then
-            pgraphDataPtr = transfer(userData, c_null_ptr)
+            pgraphDataPtr = transfer(userData, nullptr)
             call c_f_pointer(pgraphDataPtr, pgraphData)
             if (associated(pgraphData)) then
               resultbool = FillRect(hdc, c_loc(rc), pgraphData%hbrush)
