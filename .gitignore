@@ -14,3 +14,4 @@ Intel® VTune™ Profiler Results/
 *.manifest
 *.htm
 *.pdb
+/win.pdb
