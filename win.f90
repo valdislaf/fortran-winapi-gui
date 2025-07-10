@@ -59,7 +59,7 @@ program WinMain
   appDataPtr         = c_loc(appDataInst)
   hBrush             = CreateSolidBrush(MakeARGB(0, 50, 30, 10))
   hPanelBrush        = CreateSolidBrush(MakeARGB(0, 255, 20, 0))
-  msgPtr             =  c_loc(msg_inst)
+  msgPtr             = c_loc(msg_inst)
   hGraphBrush        = CreateSolidBrush(MakeARGB(0, 60, 60, 10))
   
   ! initial window size
