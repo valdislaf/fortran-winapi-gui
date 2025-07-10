@@ -4,6 +4,7 @@
 .x64/
 .x64/Debug/
 Win/
+Intel® VTune™ Profiler Results/
 *.exe
 *.mod
 *.o
@@ -12,3 +13,4 @@ Win/
 *.obj
 *.manifest
 *.htm
+*.pdb

@@ -1,7 +1,7 @@
 ! WinAPI types and constants
 module win_types
   use iso_c_binding, only: int32 => c_int32_t, i_ptr => c_intptr_t, ptr => c_ptr, f_ptr => c_funptr, &
-      nullptr => c_null_ptr, char => c_char, char0 => c_null_char, bool => c_bool, c_long!, long => c_long
+      nullptr => c_null_ptr, char => c_char, char0 => c_null_char, bool => c_bool, long => c_long
   implicit none
  
  ! Constants for windows and messages
@@ -20,6 +20,8 @@ module win_types
   integer(int32), parameter :: WM_SIZE             = 5
   integer(int32), parameter :: WM_COMMAND          = 273          ! 0x0111
   integer(int32), parameter :: WM_PAINT            = 15
+  integer(int32), parameter :: WM_TIMER            = 275 !Z'0113'  ! Сообщение таймера
+  integer(int32), parameter :: TIMER_ID            = 1        ! ID таймера
   
   ! Button styles
   integer(int32), parameter :: BS_PUSHBUTTON       = 0
@@ -62,13 +64,11 @@ module win_types
   end type
   
   type, bind(C) :: RECT
-    integer(c_long) :: left
-    integer(c_long) :: top
-    integer(c_long) :: right
-    integer(c_long) :: bottom
+    integer(long) :: left
+    integer(long) :: top
+    integer(long) :: right
+    integer(long) :: bottom
   end type RECT
-
-
 
   type, bind(C) :: PAINTSTRUCT
     type(ptr)            :: hdc            ! HDC

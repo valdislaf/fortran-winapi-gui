@@ -175,6 +175,24 @@ module win_api
         integer(int32), value :: left, top, right, bottom
         integer(int32) :: Rectangle
       end function
+      
+    ! Таймеры WinAPI
+    function SetTimer(hWnd, nIDEvent, uElapse, lpTimerFunc) bind(C, name="SetTimer")
+      use standard
+      type(ptr), value :: hWnd
+      integer(int32), value :: nIDEvent
+      integer(int32), value :: uElapse
+      type(ptr), value :: lpTimerFunc
+      integer(int32) :: SetTimer
+    end function
+
+    function KillTimer(hWnd, nIDEvent) bind(C, name="KillTimer")
+      use standard
+      type(ptr), value :: hWnd
+      integer(int32), value :: nIDEvent
+      integer(int32) :: KillTimer
+    end function
+    
   end interface
   
 contains
@@ -190,18 +208,29 @@ contains
       integer(int32)          :: width, height, lp32, panelActualWidth
       type(c_ptr) :: appDataPtr    
       integer(i_ptr) :: userData
-      !integer(int32) :: resultbool
+      integer(int32) :: resultbool
       integer(i_ptr) :: resultInvalidate
       !logical(c_bool) :: settrue
       
       select case (Msg)
       case (WM_CREATE) 
+        ! Установить таймер на 1000 мс (1 секунда)
+        resultbool = SetTimer(hWnd, TIMER_ID, 1000, nullptr)
         appDataPtr = transfer(lParam, c_null_ptr)
         call SetWindowLongPtrW(hWnd, -21, transfer(appDataPtr, 0_i_ptr))
         res = 0
-      case (WM_DESTROY)       
+      case (WM_DESTROY)
+        ! Удалить таймер
+        resultbool =  KillTimer(hWnd, TIMER_ID)
         call PostQuitMessage(0) 
-        res = 0           
+        res = 0
+      case (WM_TIMER)
+        ! Обработка таймера: wParam содержит ID таймера
+        if (wParam == TIMER_ID) then
+          print *, "Timer tick!"
+          ! Здесь можно добавить нужные действия по таймеру
+        end if
+        res = 0
       case (WM_SIZE) 
           ! Window resize message
           lp32 = transfer(lParam, int32)
@@ -254,7 +283,7 @@ contains
       resultInvalidate = 0
       
       select case (uMsg)     
-      case (1)  ! WM_CREATE
+      case (WM_CREATE) 
         allocate(pgraphData)
         pgraphData%hbrush = CreateSolidBrush(MakeARGB(0, 102, 0, 51))  ! Фиолетовая кисть
         !pgraphData%hbrush = CreateSolidBrush(int(Z'000000FF', int32))  ! R=255
@@ -289,7 +318,7 @@ contains
           !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
           ! --- 2) Подготовим «маленький» RECT 2×2 пикселя ---
           
-          rcSmall%left   = rc%left + 10            ! например, сместим +10px по X
+          rcSmall%left   = rc%left + 10            ! сместим +10px по X
           rcSmall%top    = rc%top  + 10            ! и +10px по Y
           rcSmall%right  = rcSmall%left + 2
           rcSmall%bottom = rcSmall%top  + 2
