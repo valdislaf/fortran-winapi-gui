@@ -210,12 +210,12 @@ contains
       integer(i_ptr) :: userData
       integer(int32) :: resultbool
       integer(i_ptr) :: resultInvalidate
+      
       !logical(c_bool) :: settrue
       
       select case (Msg)
       case (WM_CREATE) 
-        ! Установить таймер на 1000 мс (1 секунда)
-        resultbool = SetTimer(hWnd, TIMER_ID, 1000, nullptr)
+       
         appDataPtr = transfer(lParam, c_null_ptr)
         call SetWindowLongPtrW(hWnd, -21, transfer(appDataPtr, 0_i_ptr))
         res = 0
@@ -223,13 +223,6 @@ contains
         ! Удалить таймер
         resultbool =  KillTimer(hWnd, TIMER_ID)
         call PostQuitMessage(0) 
-        res = 0
-      case (WM_TIMER)
-        ! Обработка таймера: wParam содержит ID таймера
-        if (wParam == TIMER_ID) then
-          print *, "Timer tick!"
-          ! Здесь можно добавить нужные действия по таймеру
-        end if
         res = 0
       case (WM_SIZE) 
           ! Window resize message
@@ -264,7 +257,8 @@ contains
       use standard
       type(ptr), value :: hwnd
       type(PAINTSTRUCT), target :: ps
-      type(RECT), target :: rc
+      type(RECT), target :: rc      
+      
       !type(RECT), target :: rcc
       type(ptr) :: hdc
       integer(int32), value :: uMsg
@@ -277,6 +271,9 @@ contains
       type(ptr) :: pgraphDataPtr
       type(RECT), target :: rcSmall
       type(ptr) :: hRedBrush
+      type(AppState), pointer :: st        ! <-- нужен POINTER
+      type(ptr) :: p                       ! <-- c_ptr
+    
       !integer(c_long) :: style
       !!!!!!!!!!!!!print *, "GraphWndProc called! hwnd=", transfer(hwnd, 0_i_ptr), " uMsg=", uMsg
       retval = 0
@@ -284,25 +281,96 @@ contains
       
       select case (uMsg)     
       case (WM_CREATE) 
+        ! Установить таймер 
+        resultbool = SetTimer(hwnd, TIMER_ID, 16_int32, nullptr)   !  ~60 FPS
         allocate(pgraphData)
         pgraphData%hbrush = CreateSolidBrush(MakeARGB(0, 102, 0, 51))  ! Фиолетовая кисть
         !pgraphData%hbrush = CreateSolidBrush(int(Z'000000FF', int32))  ! R=255
         pgraphDataPtr = c_loc(pgraphData)
-        call SetWindowLongPtrW(hwnd, 0, transfer(pgraphDataPtr, 0_i_ptr))
+        call SetWindowLongPtrW(hwnd, 0, transfer(pgraphDataPtr, 0_i_ptr))       
+        
+       ! AppState in GWLP_USERDATA
+        block
+            type(AppState), pointer :: st
+            type(ptr) :: p
+            allocate(st)
+            st%x=10; st%y=10; st%dx=2; st%dy=2; st%w=2; st%h=2
+            p = c_loc(st)
+            call SetWindowLongPtrW(hwnd, GWLP_USERDATA, transfer(p, 0_i_ptr))
+        end block
         retval = 0
 
       case (WM_DESTROY)
+          ! stop timer
+          resultbool = KillTimer(hwnd, TIMER_ID)
+
+          ! free AppState from GWLP_USERDATA
+          p = transfer(GetWindowLongPtrW(hwnd, GWLP_USERDATA), nullptr)
+          if (c_associated(p)) then
+            call c_f_pointer(p, st)
+            if (associated(st)) deallocate(st)
+            call SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0_i_ptr)
+          end if
+
+          ! free GraphData and its brush (slot 0)
+          userData = GetWindowLongPtrW(hwnd, 0)
+          if (userData /= 0) then
+            pgraphDataPtr = transfer(userData, nullptr)
+            if (c_associated(pgraphDataPtr)) then
+              call c_f_pointer(pgraphDataPtr, pgraphData)
+              if (associated(pgraphData)) then
+                if (c_associated(pgraphData%hbrush)) then
+                  resultbool = DeleteObject(pgraphData%hbrush)  ! DeleteObject is a function (BOOL)
+                end if
+                deallocate(pgraphData)
+              end if
+            end if
+            call SetWindowLongPtrW(hwnd, 0, 0_i_ptr)
+          end if
           retval = 0
+          
+        case (WM_TIMER)
+            if (wParam == int(TIMER_ID, i_ptr)) then
+              ! Get AppState pointer
+              p = transfer(GetWindowLongPtrW(hwnd, GWLP_USERDATA), nullptr)
+              if (c_associated(p)) then 
+                call c_f_pointer(p, st)
+                if (associated(st)) then
+                  ! Client area
+                  ok = GetClientRect(hwnd, c_loc(rc))
+
+                  ! Update position
+                  st%x = st%x + st%dx
+                  st%y = st%y + st%dy
+
+                  ! Bounce on edges
+                  if (st%x < 0) then
+                    st%x = 0; st%dx = -st%dx
+                  else if (st%x + st%w >= rc%right) then
+                    st%x = max(0, rc%right - st%w); st%dx = -st%dx
+                  end if
+
+                  if (st%y < 0) then
+                    st%y = 0; st%dy = -st%dy
+                  else if (st%y + st%h >= rc%bottom) then
+                    st%y = max(0, rc%bottom - st%h); st%dy = -st%dy
+                  end if
+
+                  ! Request repaint; bErase=FALSE to reduce flicker
+                  ok = InvalidateRect(hwnd, nullptr, 0_int32)
+                end if
+              end if
+            end if
+            retval = 0_i_ptr
+            return
+
 
       case (WM_SIZE)
           retval = 0
 
-      case (WM_PAINT)
-          !resultInvalidate = InvalidateRect(hwnd, c_null_ptr, 1)
-          !res = GetClientRect(hwnd, c_loc(rcc))
+      case (WM_PAINT)    
         
-          hdc = BeginPaint(hwnd, c_loc(ps))
-          !resultbool =  Rectangle(hdc, 0, 0, 100, 100)
+          hdc = BeginPaint(hwnd, c_loc(ps))    
 
           resultbool = GetClientRect(hwnd, c_loc(rc))
           userData = GetWindowLongPtrW(hwnd, 0)
@@ -314,18 +382,18 @@ contains
             end if
           end if
           
-          
-          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-          ! --- 2) Подготовим «маленький» RECT 2×2 пикселя ---
-          
-          rcSmall%left   = rc%left + 10            ! сместим +10px по X
-          rcSmall%top    = rc%top  + 10            ! и +10px по Y
-          rcSmall%right  = rcSmall%left + 2
-          rcSmall%bottom = rcSmall%top  + 2
-
+          ! --- draw moving dot from AppState ---
+            p = transfer(GetWindowLongPtrW(hwnd, GWLP_USERDATA), nullptr)
+            if (c_associated(p)) then
+              call c_f_pointer(p, st)
+              if (associated(st)) then
+                rcSmall%left   = st%x
+                rcSmall%top    = st%y
+                rcSmall%right  = st%x + st%w *10   ! right = x + width
+                rcSmall%bottom = st%y + st%h *10  ! bottom = y + height
+              end if
+            end if
           ! --- 3) Создадим кисть красного цвета ---
-          ! MakeARGB(0, R, G, B) — R=255,G=0,B=0 → чистый красный
-          
           hRedBrush = CreateSolidBrush(MakeARGB(0, 0, 0, 255))
 
           ! --- 4) Закрасим маленький квадрат красной кистью ---
@@ -333,8 +401,7 @@ contains
 
           ! --- 5) Удалим временную кисть, чтобы не было утечки GDI-объектов ---
           resultbool = DeleteObject(hRedBrush)
-          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-          
+          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!          
           
           resultbool = EndPaint(hwnd, c_loc(ps))
           retval = 0

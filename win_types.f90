@@ -22,7 +22,8 @@ module win_types
   integer(int32), parameter :: WM_PAINT            = 15
   integer(int32), parameter :: WM_TIMER            = 275 !Z'0113'  ! Сообщение таймера
   integer(int32), parameter :: TIMER_ID            = 1        ! ID таймера
-  
+  integer(int32), parameter :: GWLP_USERDATA = -21  ! for SetWindowLongPtrW
+
   ! Button styles
   integer(int32), parameter :: BS_PUSHBUTTON       = 0
   integer(int32), parameter :: BS_DEFPUSHBUTTON    = 1
@@ -82,6 +83,14 @@ module win_types
   type :: GraphData
     type(ptr) :: hbrush
   end type GraphData
-
+  
+  type, bind(C) :: AppState
+    integer(int32) :: x = 10    ! current X in client coords
+    integer(int32) :: y = 10    ! current Y
+    integer(int32) :: dx = 2    ! step X per timer tick
+    integer(int32) :: dy = 2    ! step Y per timer tick
+    integer(int32) :: w  = 2    ! dot width  (>=1)
+    integer(int32) :: h  = 2    ! dot height (>=1)
+  end type AppState
 
 end module win_types
