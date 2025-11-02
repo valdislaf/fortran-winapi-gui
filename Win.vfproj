@@ -54,15 +54,18 @@
 		<Filter Name="Header Files" Filter="fi;fd;h;inc"/>
 		<Filter Name="Resource Files" Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe">
 			<File RelativePath=".\cross.ico"/>
-			<File RelativePath=".\favicon.ico"/>
+			<File RelativePath=".\favicon.ico">
+			</File>
 		</Filter>
 		<Filter Name="Source Files" Filter="f90;for;f;fpp;ftn;def;odl;idl">
-			<File RelativePath=".\color_utils.f90"/>
-			<File RelativePath=".\fortran win_api.f90"/>
-			<File RelativePath=".\gui_helpers.f90"/>
+			<File RelativePath=".\color_utils.f90">
+			</File>
+			<File RelativePath=".\gui_helpers.f90">
+			</File>
 			<File RelativePath=".\standard.f90"/>
 			<File RelativePath=".\string_utils.f90"/>
-			<File RelativePath=".\win.f90"/>
+			<File RelativePath=".\win.f90">
+			</File>
 			<File RelativePath=".\win_api.f90"/>
 			<File RelativePath=".\win_types.f90"/>
 		</Filter>
