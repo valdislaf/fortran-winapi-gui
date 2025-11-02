@@ -1,7 +1,8 @@
 ! WinAPI types and constants
 module win_types
   use iso_c_binding, only: int32 => c_int32_t, i_ptr => c_intptr_t, ptr => c_ptr, f_ptr => c_funptr, &
-      nullptr => c_null_ptr, char => c_char, char0 => c_null_char, bool => c_bool, long => c_long
+      nullptr => c_null_ptr, char => c_char, char0 => c_null_char, bool => c_bool, long => c_long, &
+      double => c_double                                         
   implicit none
  
  ! Constants for windows and messages
@@ -84,13 +85,20 @@ module win_types
     type(ptr) :: hbrush
   end type GraphData
   
-  type, bind(C) :: AppState
-    integer(int32) :: x = 10    ! current X in client coords
-    integer(int32) :: y = 10    ! current Y
-    integer(int32) :: dx = 2    ! step X per timer tick
-    integer(int32) :: dy = 2    ! step Y per timer tick
-    integer(int32) :: w  = 2    ! dot width  (>=1)
-    integer(int32) :: h  = 2    ! dot height (>=1)
-  end type AppState
+ type, bind(C) :: AppState
+  integer(int32) :: x = 10
+  integer(int32) :: y = 10
+  integer(int32) :: dx = 2
+  integer(int32) :: dy = 2
+  integer(int32) :: w  = 6
+  integer(int32) :: h  = 6
+  ! --- circular/elliptic motion params ---
+  real(double) :: cx = 0.0d0    ! center X (in client coords)
+  real(double) :: cy = 0.0d0    ! center Y
+  real(double) :: rx = 50.0d0   ! radius X
+  real(double) :: ry = 50.0d0   ! radius Y
+  real(double) :: theta = 0.0d0 ! current phase (radians)
+  real(double) :: omega = 1.0d0 ! angular speed (rad/s)
+end type AppState
 
 end module win_types

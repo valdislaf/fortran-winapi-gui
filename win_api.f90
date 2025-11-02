@@ -273,7 +273,8 @@ contains
       type(ptr) :: hRedBrush
       type(AppState), pointer :: st        ! <-- нужен POINTER
       type(ptr) :: p                       ! <-- c_ptr
-    
+      real(double) :: dt
+                  
       !integer(c_long) :: style
       !!!!!!!!!!!!!print *, "GraphWndProc called! hwnd=", transfer(hwnd, 0_i_ptr), " uMsg=", uMsg
       retval = 0
@@ -294,10 +295,23 @@ contains
             type(AppState), pointer :: st
             type(ptr) :: p
             allocate(st)
+            ! inside WM_CREATE, after allocate(st) and before storing pointer:
+            st%w = 6; st%h = 6
+            st%theta = 0.0d0
+            st%omega = 2.0d0 * 3.141592653589793d0 / 4.0d0   ! one revolution per 4 seconds
+
+            ! init by current client size
+            ok = GetClientRect(hwnd, c_loc(rc))
+            st%cx = 0.5d0 * real(rc%right, kind=c_double)
+            st%cy = 0.5d0 * real(rc%bottom, kind=c_double)
+            st%rx = 0.4d0 * real(rc%right, kind=c_double)     ! ellipse radii (40% of client)
+            st%ry = 0.4d0 * real(rc%bottom, kind=c_double)
+
             st%x=10; st%y=10; st%dx=2; st%dy=2; st%w=2; st%h=2
             p = c_loc(st)
             call SetWindowLongPtrW(hwnd, GWLP_USERDATA, transfer(p, 0_i_ptr))
         end block
+        
         retval = 0
 
       case (WM_DESTROY)
@@ -336,37 +350,39 @@ contains
               if (c_associated(p)) then 
                 call c_f_pointer(p, st)
                 if (associated(st)) then
-                  ! Client area
-                  ok = GetClientRect(hwnd, c_loc(rc))
+                    dt = 0.016d0
 
-                  ! Update position
-                  st%x = st%x + st%dx
-                  st%y = st%y + st%dy
+                    ! advance phase
+                    st%theta = st%theta + st%omega * dt
+                    if (st%theta > 6.283185307179586d0) st%theta = st%theta - 6.283185307179586d0
 
-                  ! Bounce on edges
-                  if (st%x < 0) then
-                    st%x = 0; st%dx = -st%dx
-                  else if (st%x + st%w >= rc%right) then
-                    st%x = max(0, rc%right - st%w); st%dx = -st%dx
-                  end if
+                    ! compute new x,y on ellipse
+                    st%x = int( nint( st%cx + st%rx * cos(st%theta) ), int32 )
+                    st%y = int( nint( st%cy + st%ry * sin(st%theta) ), int32 )
 
-                  if (st%y < 0) then
-                    st%y = 0; st%dy = -st%dy
-                  else if (st%y + st%h >= rc%bottom) then
-                    st%y = max(0, rc%bottom - st%h); st%dy = -st%dy
-                  end if
+                    ! request repaint (no erase)
+                    ok = InvalidateRect(hwnd, nullptr, 0_int32)
 
-                  ! Request repaint; bErase=FALSE to reduce flicker
-                  ok = InvalidateRect(hwnd, nullptr, 0_int32)
                 end if
               end if
             end if
-            retval = 0_i_ptr
-            return
+            retval = 0
 
 
       case (WM_SIZE)
+          p = transfer(GetWindowLongPtrW(hwnd, GWLP_USERDATA), nullptr)
+          if (c_associated(p)) then
+            call c_f_pointer(p, st)
+            if (associated(st)) then
+              ok = GetClientRect(hwnd, c_loc(rc))
+              st%cx = 0.5d0 * real(rc%right, kind=c_double)
+              st%cy = 0.5d0 * real(rc%bottom, kind=c_double)
+              st%rx = 0.4d0 * real(rc%right, kind=c_double)
+              st%ry = 0.4d0 * real(rc%bottom, kind=c_double)
+            end if
+          end if          
           retval = 0
+
 
       case (WM_PAINT)    
         
