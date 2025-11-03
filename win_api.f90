@@ -296,10 +296,10 @@ contains
             st%omega  = 2.0d0 * 3.141592653589793d0 / 4.0d0  ! one revolution per 4s
 
             ok = GetClientRect(hwnd, c_loc(rc))
-            st%cx = 0.5d0 * real(rc%right,  c_double)
-            st%cy = 0.5d0 * real(rc%bottom, c_double)
-            st%rx = 0.4d0 * real(rc%right,  c_double)
-            st%ry = 0.4d0 * real(rc%bottom, c_double)
+            st%cx = 0.5d0 * real(rc%right,  double)
+            st%cy = 0.5d0 * real(rc%bottom, double)
+            st%rx = 0.4d0 * real(rc%right,  double)
+            st%ry = 0.4d0 * real(rc%bottom, double)
 
             p = c_loc(st)
             call SetWindowLongPtrW(hwnd, GWLP_USERDATA, transfer(p, 0_i_ptr))
@@ -355,10 +355,10 @@ contains
             call c_f_pointer(p, st)
             if (associated(st)) then
               ok = GetClientRect(hwnd, c_loc(rc))
-              st%cx = 0.5d0 * real(rc%right, kind=c_double)
-              st%cy = 0.5d0 * real(rc%bottom, kind=c_double)
-              st%rx = 0.4d0 * real(rc%right, kind=c_double)
-              st%ry = 0.4d0 * real(rc%bottom, kind=c_double)
+              st%cx = 0.5d0 * real(rc%right, kind=double)
+              st%cy = 0.5d0 * real(rc%bottom, kind=double)
+              st%rx = 0.4d0 * real(rc%right, kind=double)
+              st%ry = 0.4d0 * real(rc%bottom, kind=double)
             end if
           end if          
           retval = 0
@@ -389,7 +389,7 @@ contains
               block
                 integer(int32) :: cx, cy, wClient, hClient
                 integer(int32) :: dxl, dyl, steps, i, px, py, pix
-                real(c_double) :: fx, fy, stepx, stepy
+                real(double) :: fx, fy, stepx, stepy
                 type(ptr) :: hBrushLine
 
                 wClient = rc%right - rc%left
@@ -401,9 +401,9 @@ contains
                 dyl = st%y - cy
                 steps = max(1_int32, max(abs(dxl), abs(dyl)))
 
-                fx = real(cx, c_double);  fy = real(cy, c_double)
-                stepx = real(dxl, c_double) / real(steps, c_double)
-                stepy = real(dyl, c_double) / real(steps, c_double)
+                fx = real(cx, double);  fy = real(cy, double)
+                stepx = real(dxl, double) / real(steps, double)
+                stepy = real(dyl, double) / real(steps, double)
 
                 hBrushLine = CreateSolidBrush(MakeARGB(0, 255, 215, 0))  ! golden/yellow
                 pix = 2
