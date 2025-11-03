@@ -293,13 +293,13 @@ contains
             st%w = 6; st%h = 6
             st%theta  = 0.0d0
             st%theta2 = 0.0d0
-            st%omega  = 2.0d0 * 3.141592653589793d0 / 4.0d0  ! one revolution per 4s
+            st%omega  = 2.0d0 * 3.141592653589793d0 / 4.0d0
 
-            ok = GetClientRect(hwnd, c_loc(rc))
-            st%cx = 0.5d0 * real(rc%right,  double)
-            st%cy = 0.5d0 * real(rc%bottom, double)
-            st%rx = 0.4d0 * real(rc%right,  double)
-            st%ry = 0.4d0 * real(rc%bottom, double)
+            ! fixed tiny clock in the top-left corner:
+            st%cx = 40.0d0          ! center X (pixels)
+            st%cy = 40.0d0          ! center Y
+            st%rx = 20.0d0          ! radius X 
+            st%ry = 20.0d0          ! radius Y
 
             p = c_loc(st)
             call SetWindowLongPtrW(hwnd, GWLP_USERDATA, transfer(p, 0_i_ptr))
@@ -329,19 +329,12 @@ contains
                   call c_f_pointer(p, st)
                   if (associated(st)) then
                     dt = 0.016d0
-
-                    ! fast hand
                     st%theta = st%theta + st%omega * dt
                     if (st%theta >= 6.283185307179586d0) st%theta = st%theta - 6.283185307179586d0
-
-                    ! slow hand = 60x slower
                     st%theta2 = st%theta2 + (st%omega/60.0d0) * dt
                     if (st%theta2 >= 6.283185307179586d0) st%theta2 = st%theta2 - 6.283185307179586d0
-
-                    ! recompute fast dot (screen Y goes down -> same sign as in your paint)
                     st%x = int( nint( st%cx + st%rx * cos(st%theta) ), int32 )
                     st%y = int( nint( st%cy + st%ry * sin(st%theta) ), int32 )
-
                     ok = InvalidateRect(hwnd, nullptr, 0_int32)
                   end if
                 end if
@@ -349,19 +342,8 @@ contains
             retval = 0
 
 
-      case (WM_SIZE)
-          p = transfer(GetWindowLongPtrW(hwnd, GWLP_USERDATA), nullptr)
-          if (c_associated(p)) then
-            call c_f_pointer(p, st)
-            if (associated(st)) then
-              ok = GetClientRect(hwnd, c_loc(rc))
-              st%cx = 0.5d0 * real(rc%right, kind=double)
-              st%cy = 0.5d0 * real(rc%bottom, kind=double)
-              st%rx = 0.4d0 * real(rc%right, kind=double)
-              st%ry = 0.4d0 * real(rc%bottom, kind=double)
-            end if
-          end if          
-          retval = 0
+        case (WM_SIZE)
+            retval = 0
 
 
       case (WM_PAINT)
@@ -372,42 +354,25 @@ contains
           p = transfer(GetWindowLongPtrW(hwnd, GWLP_USERDATA), nullptr)
           if (c_associated(p)) then
             call c_f_pointer(p, st)
-            if (associated(st)) then
-              ! 1) background
+            if (associated(st)) then             
               if (c_associated(st%hbg_brush)) ok = FillRect(hdc, c_loc(rc), st%hbg_brush)
-
-              ! 2) moving "pixel" (scale 10 if you want)
-            !  rcSmall%left   = st%x
-            !  rcSmall%top    = st%y
-            !  rcSmall%right  = st%x + st%w * 10
-            !  rcSmall%bottom = st%y + st%h * 10
-            !  hRedBrush      = CreateSolidBrush(MakeARGB(0, 0, 0, 255))
-            !  ok             = FillRect(hdc, c_loc(rcSmall), hRedBrush)
-            !  ok             = DeleteObject(hRedBrush)
-
-              ! 3) first hand: DDA from center -> (st%x, st%y)
               block
                 integer(int32) :: cx, cy, wClient, hClient
                 integer(int32) :: dxl, dyl, steps, i, px, py, pix
                 real(double) :: fx, fy, stepx, stepy
                 type(ptr) :: hBrushLine
-
                 wClient = rc%right - rc%left
                 hClient = rc%bottom - rc%top
-                cx = rc%left + wClient/2
-                cy = rc%top  + hClient/2
-
+                cx = int(nint(st%cx), int32)
+                cy = int(nint(st%cy), int32)
                 dxl = st%x - cx
                 dyl = st%y - cy
                 steps = max(1_int32, max(abs(dxl), abs(dyl)))
-
                 fx = real(cx, double);  fy = real(cy, double)
                 stepx = real(dxl, double) / real(steps, double)
                 stepy = real(dyl, double) / real(steps, double)
-
-                hBrushLine = CreateSolidBrush(MakeARGB(0, 255, 215, 0))  ! golden/yellow
-                pix = 2
-
+                hBrushLine = CreateSolidBrush(MakeARGB(0, 255, 215, 0))  
+                pix = 1
                 do i = 1, steps
                   px = int(nint(fx), int32)
                   py = int(nint(fy), int32)
@@ -416,37 +381,30 @@ contains
                   ok = FillRect(hdc, c_loc(rcSmall), hBrushLine)
                   fx = fx + stepx; fy = fy + stepy
                 end do
-
                 ok = DeleteObject(hBrushLine)
               end block
 
-              ! 4) second, slower hand: same direction, omega/60
               block
                 integer(int32) :: cx, cy, wClient, hClient, r, r2
                 integer(int32) :: x2, y2, dx2, dy2, steps2, i2, px2, py2, pix2
                 real(double) :: fx2, fy2, stepx2, stepy2
                 type(ptr) :: hBrushLine2
-
                 wClient = rc%right - rc%left
                 hClient = rc%bottom - rc%top
-                cx = rc%left + wClient/2
-                cy = rc%top  + hClient/2
-                r  = min(wClient, hClient)/2 - 8
-                r2 = int( 0.60d0 * real(r, double), int32 )   ! 60% of full radius
+                cx = int(nint(st%cx), int32)
+                cy = int(nint(st%cy), int32)
+                r  = int(nint(min(st%rx, st%ry)), int32)       ! = 10
+                r2 = int( 0.60d0 * real(r, double), int32 )    ! короче, 60% длины
                 x2 = cx + int( nint( real(r2, double) * cos(st%theta2) ), int32 )
-                y2 = cy + int( nint( real(r2, double) * sin(st%theta2) ), int32 )  ! same sign as fast
-
+                y2 = cy + int( nint( real(r2, double) * sin(st%theta2) ), int32 )
                 dx2 = x2 - cx
                 dy2 = y2 - cy
                 steps2 = max(1_int32, max(abs(dx2), abs(dy2)))
-
                 fx2 = real(cx, double); fy2 = real(cy, double)
                 stepx2 = real(dx2, double) / real(steps2, double)
                 stepy2 = real(dy2, double) / real(steps2, double)
-
-                hBrushLine2 = CreateSolidBrush(MakeARGB(0, 0, 180, 255))  ! cyan/blue
-                pix2 = 2
-
+                hBrushLine2 = CreateSolidBrush(MakeARGB(0, 0, 180, 255))
+                pix2 = 1
                 do i2 = 1, steps2
                   px2 = int(nint(fx2), int32)
                   py2 = int(nint(fy2), int32)
@@ -455,13 +413,10 @@ contains
                   ok = FillRect(hdc, c_loc(rcSmall), hBrushLine2)
                   fx2 = fx2 + stepx2; fy2 = fy2 + stepy2
                 end do
-
                 ok = DeleteObject(hBrushLine2)
               end block
-
             end if
           end if
-
           ok = EndPaint(hwnd, c_loc(ps))
           retval = 0
 
