@@ -336,7 +336,8 @@ contains
         real(double)  :: fx2, fy2, stepx2, stepy2
         type(ptr)     :: hBrush1, hBrush2
         integer(int32):: pix
-
+        real(double), parameter :: PI = acos(-1.0d0)
+       
       !integer(c_long) :: style
       !!!!!!!!!!!!!print *, "GraphWndProc called! hwnd=", transfer(hwnd, 0_i_ptr), " uMsg=", uMsg
       retval = 0
@@ -366,7 +367,7 @@ contains
             baseY = 40.0d0
             step  = 40.0d0
             rad   = 20.0d0     
-            w_base = 2.0d0 * 3.141592653589793d0 / 4.0d0    ! 1 rev / 4 s
+            w_base = 2.0d0 * PI / 4.0d0    ! 1 rev / 4 s
 
             allocate(st%clocks(N))
             allocate(st%omega_fast(N))
@@ -392,7 +393,7 @@ contains
             st%w = 6; st%h = 6
             st%theta  = 0.0d0
             st%theta2 = 0.0d0
-            st%omega  = 2.0d0 * 3.141592653589793d0 / 4.0d0
+            st%omega  = 2.0d0 * PI / 4.0d0
 
             ! fixed tiny clock in the top-left corner:
             st%cx = 40.0d0          ! center X (pixels)
@@ -431,12 +432,12 @@ contains
 
                 do k = 1, N
                   st%clocks(k)%theta  = st%clocks(k)%theta  + st%omega_fast(k)*dt
-                  if (st%clocks(k)%theta  >= 6.283185307179586d0) &
-                      st%clocks(k)%theta  = st%clocks(k)%theta  - 6.283185307179586d0
+                  if (st%clocks(k)%theta  >= 2*PI) &
+                      st%clocks(k)%theta  = st%clocks(k)%theta  - 2*PI
 
                   st%clocks(k)%theta2 = st%clocks(k)%theta2 + st%omega_slow(k)*dt
-                  if (st%clocks(k)%theta2 >= 6.283185307179586d0) &
-                      st%clocks(k)%theta2 = st%clocks(k)%theta2 - 6.283185307179586d0
+                  if (st%clocks(k)%theta2 >= 2*PI) &
+                      st%clocks(k)%theta2 = st%clocks(k)%theta2 - 2*PI
                 end do
 
                 ok = InvalidateRect(hwnd, nullptr, 0_int32)
