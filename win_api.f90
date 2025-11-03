@@ -266,9 +266,7 @@ contains
       integer(i_ptr) :: retval
       integer(int32) :: resultbool
       integer(i_ptr) :: resultInvalidate
-      integer(i_ptr) :: userData
-      type(GraphData), pointer :: pgraphData
-      type(ptr) :: pgraphDataPtr
+      integer(i_ptr) :: userData     
       type(RECT), target :: rcSmall
       type(ptr) :: hRedBrush
       type(AppState), pointer :: st        ! <-- нужен POINTER
@@ -282,90 +280,72 @@ contains
       
       select case (uMsg)     
       case (WM_CREATE) 
-        ! Установить таймер 
-        resultbool = SetTimer(hwnd, TIMER_ID, 16_int32, nullptr)   !  ~60 FPS
-        allocate(pgraphData)
-        pgraphData%hbrush = CreateSolidBrush(MakeARGB(0, 102, 0, 51))  ! Фиолетовая кисть
-        !pgraphData%hbrush = CreateSolidBrush(int(Z'000000FF', int32))  ! R=255
-        pgraphDataPtr = c_loc(pgraphData)
-        call SetWindowLongPtrW(hwnd, 0, transfer(pgraphDataPtr, 0_i_ptr))       
-        
-       ! AppState in GWLP_USERDATA
-        block
+        ! Установить таймер
+          resultbool = SetTimer(hwnd, TIMER_ID, 16_int32, nullptr)   ! ~60 FPS
+
+          block
             type(AppState), pointer :: st
             type(ptr) :: p
             allocate(st)
-            ! inside WM_CREATE, after allocate(st) and before storing pointer:
+
+            st%hbg_brush = CreateSolidBrush(MakeARGB(0, 102, 0, 51))  ! background brush
+
             st%w = 6; st%h = 6
-            st%theta = 0.0d0
-            st%omega = 2.0d0 * 3.141592653589793d0 / 4.0d0   ! one revolution per 4 seconds
+            st%theta  = 0.0d0
+            st%theta2 = 0.0d0
+            st%omega  = 2.0d0 * 3.141592653589793d0 / 4.0d0  ! one revolution per 4s
 
-            ! init by current client size
             ok = GetClientRect(hwnd, c_loc(rc))
-            st%cx = 0.5d0 * real(rc%right, kind=c_double)
-            st%cy = 0.5d0 * real(rc%bottom, kind=c_double)
-            st%rx = 0.4d0 * real(rc%right, kind=c_double)     ! ellipse radii (40% of client)
-            st%ry = 0.4d0 * real(rc%bottom, kind=c_double)
+            st%cx = 0.5d0 * real(rc%right,  c_double)
+            st%cy = 0.5d0 * real(rc%bottom, c_double)
+            st%rx = 0.4d0 * real(rc%right,  c_double)
+            st%ry = 0.4d0 * real(rc%bottom, c_double)
 
-            st%x=10; st%y=10; st%dx=2; st%dy=2; st%w=2; st%h=2
             p = c_loc(st)
             call SetWindowLongPtrW(hwnd, GWLP_USERDATA, transfer(p, 0_i_ptr))
-        end block
-        
-        retval = 0
+          end block
+
+          retval = 0
 
       case (WM_DESTROY)
-          ! stop timer
           resultbool = KillTimer(hwnd, TIMER_ID)
 
-          ! free AppState from GWLP_USERDATA
           p = transfer(GetWindowLongPtrW(hwnd, GWLP_USERDATA), nullptr)
           if (c_associated(p)) then
             call c_f_pointer(p, st)
-            if (associated(st)) deallocate(st)
+            if (associated(st)) then
+              if (c_associated(st%hbg_brush)) resultbool = DeleteObject(st%hbg_brush)
+              deallocate(st)
+            end if
             call SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0_i_ptr)
           end if
-
-          ! free GraphData and its brush (slot 0)
-          userData = GetWindowLongPtrW(hwnd, 0)
-          if (userData /= 0) then
-            pgraphDataPtr = transfer(userData, nullptr)
-            if (c_associated(pgraphDataPtr)) then
-              call c_f_pointer(pgraphDataPtr, pgraphData)
-              if (associated(pgraphData)) then
-                if (c_associated(pgraphData%hbrush)) then
-                  resultbool = DeleteObject(pgraphData%hbrush)  ! DeleteObject is a function (BOOL)
-                end if
-                deallocate(pgraphData)
-              end if
-            end if
-            call SetWindowLongPtrW(hwnd, 0, 0_i_ptr)
-          end if
+         
           retval = 0
           
         case (WM_TIMER)
-            if (wParam == int(TIMER_ID, i_ptr)) then
-              ! Get AppState pointer
-              p = transfer(GetWindowLongPtrW(hwnd, GWLP_USERDATA), nullptr)
-              if (c_associated(p)) then 
-                call c_f_pointer(p, st)
-                if (associated(st)) then
+              if (wParam == int(TIMER_ID, i_ptr)) then
+                p = transfer(GetWindowLongPtrW(hwnd, GWLP_USERDATA), nullptr)
+                if (c_associated(p)) then
+                  call c_f_pointer(p, st)
+                  if (associated(st)) then
                     dt = 0.016d0
 
-                    ! advance phase
+                    ! fast hand
                     st%theta = st%theta + st%omega * dt
-                    if (st%theta > 6.283185307179586d0) st%theta = st%theta - 6.283185307179586d0
+                    if (st%theta >= 6.283185307179586d0) st%theta = st%theta - 6.283185307179586d0
 
-                    ! compute new x,y on ellipse
+                    ! slow hand = 60x slower
+                    st%theta2 = st%theta2 + (st%omega/60.0d0) * dt
+                    if (st%theta2 >= 6.283185307179586d0) st%theta2 = st%theta2 - 6.283185307179586d0
+
+                    ! recompute fast dot (screen Y goes down -> same sign as in your paint)
                     st%x = int( nint( st%cx + st%rx * cos(st%theta) ), int32 )
                     st%y = int( nint( st%cy + st%ry * sin(st%theta) ), int32 )
 
-                    ! request repaint (no erase)
                     ok = InvalidateRect(hwnd, nullptr, 0_int32)
-
+                  end if
                 end if
               end if
-            end if
             retval = 0
 
 
@@ -384,42 +364,105 @@ contains
           retval = 0
 
 
-      case (WM_PAINT)    
-        
-          hdc = BeginPaint(hwnd, c_loc(ps))    
+      case (WM_PAINT)
+          hdc = BeginPaint(hwnd, c_loc(ps))
+          ok  = GetClientRect(hwnd, c_loc(rc))
 
-          resultbool = GetClientRect(hwnd, c_loc(rc))
-          userData = GetWindowLongPtrW(hwnd, 0)
-          if (userData /= 0) then
-            pgraphDataPtr = transfer(userData, nullptr)
-            call c_f_pointer(pgraphDataPtr, pgraphData)
-            if (associated(pgraphData)) then
-              resultbool = FillRect(hdc, c_loc(rc), pgraphData%hbrush)
+          ! Pull AppState
+          p = transfer(GetWindowLongPtrW(hwnd, GWLP_USERDATA), nullptr)
+          if (c_associated(p)) then
+            call c_f_pointer(p, st)
+            if (associated(st)) then
+              ! 1) background
+              if (c_associated(st%hbg_brush)) ok = FillRect(hdc, c_loc(rc), st%hbg_brush)
+
+              ! 2) moving "pixel" (scale 10 if you want)
+            !  rcSmall%left   = st%x
+            !  rcSmall%top    = st%y
+            !  rcSmall%right  = st%x + st%w * 10
+            !  rcSmall%bottom = st%y + st%h * 10
+            !  hRedBrush      = CreateSolidBrush(MakeARGB(0, 0, 0, 255))
+            !  ok             = FillRect(hdc, c_loc(rcSmall), hRedBrush)
+            !  ok             = DeleteObject(hRedBrush)
+
+              ! 3) first hand: DDA from center -> (st%x, st%y)
+              block
+                integer(int32) :: cx, cy, wClient, hClient
+                integer(int32) :: dxl, dyl, steps, i, px, py, pix
+                real(c_double) :: fx, fy, stepx, stepy
+                type(ptr) :: hBrushLine
+
+                wClient = rc%right - rc%left
+                hClient = rc%bottom - rc%top
+                cx = rc%left + wClient/2
+                cy = rc%top  + hClient/2
+
+                dxl = st%x - cx
+                dyl = st%y - cy
+                steps = max(1_int32, max(abs(dxl), abs(dyl)))
+
+                fx = real(cx, c_double);  fy = real(cy, c_double)
+                stepx = real(dxl, c_double) / real(steps, c_double)
+                stepy = real(dyl, c_double) / real(steps, c_double)
+
+                hBrushLine = CreateSolidBrush(MakeARGB(0, 255, 215, 0))  ! golden/yellow
+                pix = 2
+
+                do i = 1, steps
+                  px = int(nint(fx), int32)
+                  py = int(nint(fy), int32)
+                  rcSmall%left = px; rcSmall%top = py
+                  rcSmall%right = px + pix; rcSmall%bottom = py + pix
+                  ok = FillRect(hdc, c_loc(rcSmall), hBrushLine)
+                  fx = fx + stepx; fy = fy + stepy
+                end do
+
+                ok = DeleteObject(hBrushLine)
+              end block
+
+              ! 4) second, slower hand: same direction, omega/60
+              block
+                integer(int32) :: cx, cy, wClient, hClient, r
+                integer(int32) :: x2, y2, dx2, dy2, steps2, i2, px2, py2, pix2
+                real(double) :: fx2, fy2, stepx2, stepy2
+                type(ptr) :: hBrushLine2
+
+                wClient = rc%right - rc%left
+                hClient = rc%bottom - rc%top
+                cx = rc%left + wClient/2
+                cy = rc%top  + hClient/2
+                r  = min(wClient, hClient)/2 - 8
+
+                x2 = cx + int( nint( real(r, double) * cos(st%theta2) ), int32 )
+                y2 = cy + int( nint( real(r, double) * sin(st%theta2) ), int32 )  ! same sign as fast
+
+                dx2 = x2 - cx
+                dy2 = y2 - cy
+                steps2 = max(1_int32, max(abs(dx2), abs(dy2)))
+
+                fx2 = real(cx, double); fy2 = real(cy, double)
+                stepx2 = real(dx2, double) / real(steps2, double)
+                stepy2 = real(dy2, double) / real(steps2, double)
+
+                hBrushLine2 = CreateSolidBrush(MakeARGB(0, 0, 180, 255))  ! cyan/blue
+                pix2 = 2
+
+                do i2 = 1, steps2
+                  px2 = int(nint(fx2), int32)
+                  py2 = int(nint(fy2), int32)
+                  rcSmall%left = px2; rcSmall%top = py2
+                  rcSmall%right = px2 + pix2; rcSmall%bottom = py2 + pix2
+                  ok = FillRect(hdc, c_loc(rcSmall), hBrushLine2)
+                  fx2 = fx2 + stepx2; fy2 = fy2 + stepy2
+                end do
+
+                ok = DeleteObject(hBrushLine2)
+              end block
+
             end if
           end if
-          
-          ! --- draw moving dot from AppState ---
-            p = transfer(GetWindowLongPtrW(hwnd, GWLP_USERDATA), nullptr)
-            if (c_associated(p)) then
-              call c_f_pointer(p, st)
-              if (associated(st)) then
-                rcSmall%left   = st%x
-                rcSmall%top    = st%y
-                rcSmall%right  = st%x + st%w *10   ! right = x + width
-                rcSmall%bottom = st%y + st%h *10  ! bottom = y + height
-              end if
-            end if
-          ! --- 3) Создадим кисть красного цвета ---
-          hRedBrush = CreateSolidBrush(MakeARGB(0, 0, 0, 255))
 
-          ! --- 4) Закрасим маленький квадрат красной кистью ---
-          resultbool = FillRect(hdc, c_loc(rcSmall), hRedBrush)
-
-          ! --- 5) Удалим временную кисть, чтобы не было утечки GDI-объектов ---
-          resultbool = DeleteObject(hRedBrush)
-          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!          
-          
-          resultbool = EndPaint(hwnd, c_loc(ps))
+          ok = EndPaint(hwnd, c_loc(ps))
           retval = 0
 
       case default

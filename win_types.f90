@@ -80,11 +80,7 @@ module win_types
     integer(int32)       :: fIncUpdate
     character(1)         :: rgbReserved(32)
   end type PAINTSTRUCT
-  
-  type :: GraphData
-    type(ptr) :: hbrush
-  end type GraphData
-  
+    
  type, bind(C) :: AppState
   integer(int32) :: x = 10
   integer(int32) :: y = 10
@@ -98,7 +94,9 @@ module win_types
   real(double) :: rx = 50.0d0   ! radius X
   real(double) :: ry = 50.0d0   ! radius Y
   real(double) :: theta = 0.0d0 ! current phase (radians)
-  real(double) :: omega = 1.0d0 ! angular speed (rad/s)
+  real(double) :: theta2 = 0.0d0 ! current phase (radians)
+  real(double) :: omega = 1.0d0 ! angular speed (rad/s)  
+  type(ptr)     :: hbg_brush = nullptr      ! <-- keep background brush here
 end type AppState
 
 end module win_types
