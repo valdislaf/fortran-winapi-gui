@@ -539,7 +539,7 @@ contains
 
 
           subroutine CleanupAppState(st)
-            use iso_c_binding, only: c_associated
+            !use iso_c_binding, only: c_associated
             type(AppState), pointer :: st
             type(ptr) :: tmp
             integer(int32) :: ignore
