@@ -193,6 +193,59 @@ module win_api
       integer(int32) :: KillTimer
     end function
     
+    ! --- GDI helpers for double-buffering and lines ---
+    function CreateCompatibleDC(hdc) bind(C, name="CreateCompatibleDC")
+      use standard
+      type(ptr), value :: hdc
+      type(ptr) :: CreateCompatibleDC
+    end function
+
+    function CreateCompatibleBitmap(hdc, cx, cy) bind(C, name="CreateCompatibleBitmap")
+      use standard
+      type(ptr), value :: hdc
+      integer(int32), value :: cx, cy
+      type(ptr) :: CreateCompatibleBitmap
+    end function
+
+    function SelectObject(hdc, hgdiobj) bind(C, name="SelectObject")
+      use standard
+      type(ptr), value :: hdc, hgdiobj
+      type(ptr) :: SelectObject
+    end function
+
+    function DeleteDC(hdc) bind(C, name="DeleteDC")
+      use standard
+      type(ptr), value :: hdc
+      integer(int32) :: DeleteDC
+    end function
+
+    function BitBlt(hdc, x, y, cx, cy, hdcSrc, x1, y1, rop) bind(C, name="BitBlt")
+      use standard
+      type(ptr), value :: hdc, hdcSrc
+      integer(int32), value :: x, y, cx, cy, x1, y1, rop
+      integer(int32) :: BitBlt
+    end function
+
+    function MoveToEx(hdc, x, y, lpPoint) bind(C, name="MoveToEx")
+      use standard
+      type(ptr), value :: hdc, lpPoint
+      integer(int32), value :: x, y
+      integer(int32) :: MoveToEx
+    end function
+
+    function LineTo(hdc, x, y) bind(C, name="LineTo")
+      use standard
+      type(ptr), value :: hdc
+      integer(int32), value :: x, y
+      integer(int32) :: LineTo
+    end function
+
+    function CreatePen(fnPenStyle, width, color) bind(C, name="CreatePen")
+      use standard
+      integer(int32), value :: fnPenStyle, width, color
+      type(ptr) :: CreatePen
+    end function
+
   end interface
   
 contains
@@ -259,23 +312,23 @@ contains
       type(PAINTSTRUCT), target :: ps
       type(RECT), target :: rc      
       
-      !type(RECT), target :: rcc
-      type(ptr) :: hdc
-      integer(int32), value :: uMsg
-      integer(i_ptr), value :: wParam, lParam
-      integer(i_ptr) :: retval
-      integer(int32) :: resultbool
-      integer(i_ptr) :: resultInvalidate
-      integer(i_ptr) :: userData     
-      type(RECT), target :: rcSmall
-      type(ptr) :: hRedBrush
-      type(AppState), pointer :: st        ! <-- нужен POINTER
-      type(ptr) :: p                       ! <-- c_ptr
-      real(double) :: dt
-      integer(int32) :: ix, iy, k, N
-      real(double) :: baseX, baseY, step, rad, w_base       
-      integer(int32) :: ok   ! <- add this near other locals
-      
+        !type(RECT), target :: rcc
+        type(ptr) :: hdc
+        integer(int32), value :: uMsg
+        integer(i_ptr), value :: wParam, lParam
+        integer(i_ptr) :: retval
+        integer(int32) :: resultbool
+        integer(i_ptr) :: resultInvalidate
+        integer(i_ptr) :: userData     
+        type(RECT), target :: rcSmall
+        type(ptr) :: hRedBrush
+        type(AppState), pointer :: st        ! <-- нужен POINTER
+        type(ptr) :: p                       ! <-- c_ptr
+        real(double) :: dt
+        integer(int32) :: ix, iy, k, N
+        real(double) :: baseX, baseY, step, rad, w_base       
+        integer(int32) :: ok   ! <- add this near other locals
+        type(ptr)     :: tmpSel   ! для возврата SelectObject
         integer(int32) :: cx, cy, r, r2
         integer(int32) :: x1, y1, dx1, dy1, steps1, i1, px1, py1
         integer(int32) :: x2, y2, dx2, dy2, steps2, i2, px2, py2
@@ -283,23 +336,29 @@ contains
         real(double)  :: fx2, fy2, stepx2, stepy2
         type(ptr)     :: hBrush1, hBrush2
         integer(int32):: pix
+
       !integer(c_long) :: style
       !!!!!!!!!!!!!print *, "GraphWndProc called! hwnd=", transfer(hwnd, 0_i_ptr), " uMsg=", uMsg
       retval = 0
       resultInvalidate = 0
       
-      select case (uMsg)     
+      select case (uMsg)
+          
       case (WM_CREATE) 
         ! Установить таймер
           resultbool = SetTimer(hwnd, TIMER_ID, 16_int32, nullptr)   ! ~60 FPS
-
+          
           block
             type(AppState), pointer :: st
             type(ptr) :: p
             allocate(st)
-           
-            
+           ! init backbuffer by current client size
+            ok = GetClientRect(hwnd, c_loc(rc))
+            st%backW = rc%right - rc%left
+            st%backH = rc%bottom - rc%top
 
+            st%hMemDC = CreateCompatibleDC(nullptr)
+           
             st%nx = 10; st%ny = 10
             N = st%nx * st%ny
 
@@ -359,12 +418,21 @@ contains
             end if
             call SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0_i_ptr)
           end if
+  
         if (associated(st%clocks))     deallocate(st%clocks)
         if (associated(st%omega_fast)) deallocate(st%omega_fast)
         if (associated(st%omega_slow)) deallocate(st%omega_slow)
-        if (c_associated(st%hbg_brush)) ok = DeleteObject(st%hbg_brush)
+        if (c_associated(st%hbg_brush)) ignore = DeleteObject(st%hbg_brush)
+
+        if (c_associated(st%hMemDC)) then
+          if (c_associated(st%hBmp)) then
+            tmpSel = SelectObject(st%hMemDC, st%hBmpOld)
+            ignore = DeleteObject(st%hBmp)
+          end if
+          ignore = DeleteDC(st%hMemDC)
+        end if
         deallocate(st)
-          retval = 0
+        retval = 0
           
       case (WM_TIMER)
           if (wParam == int(TIMER_ID, i_ptr)) then
@@ -394,7 +462,25 @@ contains
 
 
         case (WM_SIZE)
-            retval = 0
+          p = transfer(GetWindowLongPtrW(hwnd, GWLP_USERDATA), nullptr)
+          if (c_associated(p)) then
+            call c_f_pointer(p, st)
+            if (associated(st)) then
+              ok = GetClientRect(hwnd, c_loc(rc))
+              st%backW = rc%right - rc%left
+              st%backH = rc%bottom - rc%top
+              ! reallocate bitmap
+              if (c_associated(st%hBmp)) then                
+                tmpSel = SelectObject(st%hMemDC, st%hBmpOld)
+                ignore = DeleteObject(st%hBmp)
+              end if
+              st%hBmp   = CreateCompatibleBitmap(BeginPaint(hwnd, c_loc(ps)), st%backW, st%backH)
+              ignore     = EndPaint(hwnd, c_loc(ps))
+              st%hBmpOld = SelectObject(st%hMemDC, st%hBmp)
+            end if
+          end if
+          retval = 0
+
 
 
       case (WM_PAINT)
@@ -405,71 +491,66 @@ contains
           if (c_associated(p)) then
             call c_f_pointer(p, st)
             if (associated(st)) then
-              if (c_associated(st%hbg_brush)) ok = FillRect(hdc, c_loc(rc), st%hbg_brush)
+              ! 1) clear backbuffer (fill background)
+              if (c_associated(st%hbg_brush)) ok = FillRect(st%hMemDC, c_loc(rc), st%hbg_brush)
 
-              ! --- draw all clocks ---
+              ! 2) draw all clocks into backbuffer with simple GDI lines
               N = size(st%clocks)
               do k = 1, N
-
-                ! centers/radii per clock
+               
                 cx = int(nint(st%clocks(k)%cx), int32)
                 cy = int(nint(st%clocks(k)%cy), int32)
-                r  = int(nint(min(st%clocks(k)%rx, st%clocks(k)%ry)), int32)
-                r2 = int(0.60d0 * real(r, double), int32)
 
-                ! --- fast hand endpoint (use rx/ry for ellipse) ---
+                ! fast hand endpoint (ellipse)
                 x1 = cx + int( nint( st%clocks(k)%rx * cos(st%clocks(k)%theta) ), int32 )
                 y1 = cy + int( nint( st%clocks(k)%ry * sin(st%clocks(k)%theta) ), int32 )
 
-                dx1 = x1 - cx;  dy1 = y1 - cy
-                steps1 = max(1_int32, max(abs(dx1), abs(dy1)))
-                fx1 = real(cx, double);  fy1 = real(cy, double)
-                stepx1 = real(dx1, double)/real(steps1, double)
-                stepy1 = real(dy1, double)/real(steps1, double)
+                call DrawHand(st%hMemDC, cx, cy, x1, y1, MakeARGB(0,255,215,0), 1)  ! gold
 
-                hBrush1 = CreateSolidBrush(MakeARGB(0, 255, 215, 0))   ! gold
-                pix = 1
-                do i1 = 1, steps1
-                  px1 = int(nint(fx1), int32)
-                  py1 = int(nint(fy1), int32)
-                  rcSmall%left = px1; rcSmall%top = py1
-                  rcSmall%right = px1 + pix; rcSmall%bottom = py1 + pix
-                  ok = FillRect(hdc, c_loc(rcSmall), hBrush1)
-                  fx1 = fx1 + stepx1; fy1 = fy1 + stepy1
-                end do
-                ok = DeleteObject(hBrush1)
+                ! slow hand endpoint (60% of radius, circle)
+                r2 = int( 0.60d0 * nint(min(st%clocks(k)%rx, st%clocks(k)%ry)), int32 )
+                x2 = cx + int( nint( real(r2,double) * cos(st%clocks(k)%theta2) ), int32 )
+                y2 = cy + int( nint( real(r2,double) * sin(st%clocks(k)%theta2) ), int32 )
 
-                ! --- slow hand endpoint (shorter, circle by r2) ---
-                x2 = cx + int( nint( real(r2, double) * cos(st%clocks(k)%theta2) ), int32 )
-                y2 = cy + int( nint( real(r2, double) * sin(st%clocks(k)%theta2) ), int32 )
-
-                dx2 = x2 - cx;  dy2 = y2 - cy
-                steps2 = max(1_int32, max(abs(dx2), abs(dy2)))
-                fx2 = real(cx, double);  fy2 = real(cy, double)
-                stepx2 = real(dx2, double)/real(steps2, double)
-                stepy2 = real(dy2, double)/real(steps2, double)
-
-                hBrush2 = CreateSolidBrush(MakeARGB(0, 0, 180, 255))   ! cyan/blue
-                do i2 = 1, steps2
-                  px2 = int(nint(fx2), int32)
-                  py2 = int(nint(fy2), int32)
-                  rcSmall%left = px2; rcSmall%top = py2
-                  rcSmall%right = px2 + pix; rcSmall%bottom = py2 + pix
-                  ok = FillRect(hdc, c_loc(rcSmall), hBrush2)
-                  fx2 = fx2 + stepx2; fy2 = fy2 + stepy2
-                end do
-                ok = DeleteObject(hBrush2)
+                call DrawHand(st%hMemDC, cx, cy, x2, y2, MakeARGB(0,  0,180,255), 1) ! cyan/blue
               end do
-              ! --- end draw all clocks ---
+
+              ! 3) blit backbuffer -> screen
+              ok = BitBlt(hdc, 0, 0, st%backW, st%backH, st%hMemDC, 0, 0, SRCCOPY)
             end if
           end if
 
-          ok = EndPaint(hwnd, c_loc(ps))
+          ok  = EndPaint(hwnd, c_loc(ps))
           retval = 0
+
 
       case default
         retval = DefWindowProcW(hwnd, uMsg, wParam, lParam)
-      end select
+      end select      
+      
+        contains
+            subroutine DrawHand(hdc, cx, cy, x, y, colorBGR, width)
+              ! Draw a line (clock hand) with a solid pen
+              use standard
+              type(ptr), value :: hdc
+              integer(int32), value :: cx, cy, x, y, colorBGR, width
+              type(ptr)    :: hPen, hOld, tmp
+              integer(int32) :: ok
+
+              ! create pen and select
+              hPen = CreatePen(PS_SOLID, width, colorBGR)
+              hOld = SelectObject(hdc, hPen)          ! <- returns previous HGDIOBJ (ptr)
+
+              ok  = MoveToEx(hdc, cx, cy, nullptr)
+              ok  = LineTo(hdc, x, y)
+
+              ! restore previous object; swallow return into tmp (also ptr)
+              tmp = SelectObject(hdc, hOld)
+
+              ok  = DeleteObject(hPen)                ! BOOL -> int32
+            end subroutine DrawHand
+
+      
     end function GraphWndProc
 
 

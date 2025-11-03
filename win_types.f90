@@ -24,7 +24,9 @@ module win_types
   integer(int32), parameter :: WM_TIMER            = 275 !Z'0113'  ! Сообщение таймера
   integer(int32), parameter :: TIMER_ID            = 1        ! ID таймера
   integer(int32), parameter :: GWLP_USERDATA = -21  ! for SetWindowLongPtrW
-
+  integer(int32), parameter :: PS_SOLID   = 0
+  integer(int32), parameter :: SRCCOPY    = int(Z'00CC0020', int32)
+  
   ! Button styles
   integer(int32), parameter :: BS_PUSHBUTTON       = 0
   integer(int32), parameter :: BS_DEFPUSHBUTTON    = 1
@@ -113,6 +115,12 @@ type :: AppState
   type(Clock), pointer :: clocks(:) => null()          ! OK без bind(C)
   real(double),  pointer :: omega_fast(:) => null()
   real(double),  pointer :: omega_slow(:) => null()
+  ! Backbuffer
+  type(ptr)    :: hMemDC    = nullptr   ! memory HDC
+  type(ptr)    :: hBmp      = nullptr   ! compatible bitmap
+  type(ptr)    :: hBmpOld   = nullptr   ! old selected bitmap
+  integer(int32) :: backW   = 0
+  integer(int32) :: backH   = 0
 end type AppState
 
 end module win_types
