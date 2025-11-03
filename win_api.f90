@@ -422,7 +422,7 @@ contains
 
               ! 4) second, slower hand: same direction, omega/60
               block
-                integer(int32) :: cx, cy, wClient, hClient, r
+                integer(int32) :: cx, cy, wClient, hClient, r, r2
                 integer(int32) :: x2, y2, dx2, dy2, steps2, i2, px2, py2, pix2
                 real(double) :: fx2, fy2, stepx2, stepy2
                 type(ptr) :: hBrushLine2
@@ -432,9 +432,9 @@ contains
                 cx = rc%left + wClient/2
                 cy = rc%top  + hClient/2
                 r  = min(wClient, hClient)/2 - 8
-
-                x2 = cx + int( nint( real(r, double) * cos(st%theta2) ), int32 )
-                y2 = cy + int( nint( real(r, double) * sin(st%theta2) ), int32 )  ! same sign as fast
+                r2 = int( 0.60d0 * real(r, double), int32 )   ! 60% of full radius
+                x2 = cx + int( nint( real(r2, double) * cos(st%theta2) ), int32 )
+                y2 = cy + int( nint( real(r2, double) * sin(st%theta2) ), int32 )  ! same sign as fast
 
                 dx2 = x2 - cx
                 dy2 = y2 - cy
