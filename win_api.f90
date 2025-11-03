@@ -412,27 +412,13 @@ contains
           p = transfer(GetWindowLongPtrW(hwnd, GWLP_USERDATA), nullptr)
           if (c_associated(p)) then
             call c_f_pointer(p, st)
-            if (associated(st)) then
-              if (c_associated(st%hbg_brush)) resultbool = DeleteObject(st%hbg_brush)
-              deallocate(st)
-            end if
+            call CleanupAppState(st)                 ! <-- безопасно чистим всё
+            if (associated(st)) deallocate(st)       ! <-- и только теперь убираем контейнер
             call SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0_i_ptr)
           end if
-  
-        if (associated(st%clocks))     deallocate(st%clocks)
-        if (associated(st%omega_fast)) deallocate(st%omega_fast)
-        if (associated(st%omega_slow)) deallocate(st%omega_slow)
-        if (c_associated(st%hbg_brush)) ignore = DeleteObject(st%hbg_brush)
 
-        if (c_associated(st%hMemDC)) then
-          if (c_associated(st%hBmp)) then
-            tmpSel = SelectObject(st%hMemDC, st%hBmpOld)
-            ignore = DeleteObject(st%hBmp)
-          end if
-          ignore = DeleteDC(st%hMemDC)
-        end if
-        deallocate(st)
-        retval = 0
+          retval = 0
+
           
       case (WM_TIMER)
           if (wParam == int(TIMER_ID, i_ptr)) then
@@ -550,7 +536,43 @@ contains
               ok  = DeleteObject(hPen)                ! BOOL -> int32
             end subroutine DrawHand
 
-      
+
+
+          subroutine CleanupAppState(st)
+            use iso_c_binding, only: c_associated
+            type(AppState), pointer :: st
+            type(ptr) :: tmp
+            integer(int32) :: ignore
+
+            if (.not. associated(st)) return
+
+            ! 1) двойной буфер
+            if (c_associated(st%hMemDC)) then
+              if (c_associated(st%hBmp)) then
+                if (c_associated(st%hBmpOld)) then
+                  tmp = SelectObject(st%hMemDC, st%hBmpOld)  ! вернуть старый объект
+                end if
+                ignore = DeleteObject(st%hBmp)
+                st%hBmp = c_null_ptr
+              end if
+              ignore = DeleteDC(st%hMemDC)
+              st%hMemDC = c_null_ptr
+              st%hBmpOld = c_null_ptr
+            end if
+
+            ! 2) кисть фона
+            if (c_associated(st%hbg_brush)) then
+              ignore = DeleteObject(st%hbg_brush)
+              st%hbg_brush = c_null_ptr
+            end if
+
+            ! 3) динамические массивы
+            if (associated(st%clocks))      deallocate(st%clocks)
+            if (associated(st%omega_fast))  deallocate(st%omega_fast)
+            if (associated(st%omega_slow))  deallocate(st%omega_slow)
+
+  end subroutine CleanupAppState
+
     end function GraphWndProc
 
 
