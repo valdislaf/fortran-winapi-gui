@@ -380,10 +380,10 @@ contains
                 st%clocks(k)%rx = rad
                 st%clocks(k)%ry = rad
                 st%clocks(k)%theta  = 0.0d0
-                st%clocks(k)%theta2 = 0.0d0
+                st%clocks(k)%theta2 = 0.0d0 
 
-                st%omega_fast(k) = w_base          ! per-clock fast speed
-                st%omega_slow(k) = w_base/60.0d0   ! per-clock slow speed
+                st%omega_fast(k) = w_base + ix         ! per-clock fast speed
+                st%omega_slow(k) = w_base/60.0d0 + 2*ix  ! per-clock slow speed
               end do
             end do
 
