@@ -80,23 +80,39 @@ module win_types
     integer(int32)       :: fIncUpdate
     character(1)         :: rgbReserved(32)
   end type PAINTSTRUCT
-    
- type, bind(C) :: AppState
+
+! geometry only
+type :: Clock
+  real(double) :: cx, cy      ! center
+  real(double) :: rx, ry      ! radii (circle: rx=ry)
+  real(double) :: theta       ! fast angle (radians)
+  real(double) :: theta2      ! slow angle (radians)
+end type Clock
+
+type :: AppState
   integer(int32) :: x = 10
   integer(int32) :: y = 10
   integer(int32) :: dx = 2
   integer(int32) :: dy = 2
   integer(int32) :: w  = 6
   integer(int32) :: h  = 6
-  ! --- circular/elliptic motion params ---
-  real(double) :: cx = 0.0d0    ! center X (in client coords)
-  real(double) :: cy = 0.0d0    ! center Y
-  real(double) :: rx = 50.0d0   ! radius X
-  real(double) :: ry = 50.0d0   ! radius Y
-  real(double) :: theta = 0.0d0 ! current phase (radians)
-  real(double) :: theta2 = 0.0d0 ! current phase (radians)
-  real(double) :: omega = 1.0d0 ! angular speed (rad/s)  
-  type(ptr)     :: hbg_brush = nullptr      ! <-- keep background brush here
+
+  ! circular/elliptic motion params (legacy single-dot, можно оставить)
+  real(double) :: cx = 0.0d0
+  real(double) :: cy = 0.0d0
+  real(double) :: rx = 50.0d0
+  real(double) :: ry = 50.0d0
+  real(double) :: theta  = 0.0d0
+  real(double) :: theta2 = 0.0d0
+  real(double) :: omega  = 1.0d0
+
+  type(ptr)    :: hbg_brush = nullptr
+
+  integer(int32) :: nx = 10
+  integer(int32) :: ny = 10
+  type(Clock), pointer :: clocks(:) => null()          ! OK без bind(C)
+  real(double),  pointer :: omega_fast(:) => null()
+  real(double),  pointer :: omega_slow(:) => null()
 end type AppState
 
 end module win_types

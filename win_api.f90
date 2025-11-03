@@ -272,7 +272,17 @@ contains
       type(AppState), pointer :: st        ! <-- нужен POINTER
       type(ptr) :: p                       ! <-- c_ptr
       real(double) :: dt
-                  
+      integer(int32) :: ix, iy, k, N
+      real(double) :: baseX, baseY, step, rad, w_base       
+      integer(int32) :: ok   ! <- add this near other locals
+      
+        integer(int32) :: cx, cy, r, r2
+        integer(int32) :: x1, y1, dx1, dy1, steps1, i1, px1, py1
+        integer(int32) :: x2, y2, dx2, dy2, steps2, i2, px2, py2
+        real(double)  :: fx1, fy1, stepx1, stepy1
+        real(double)  :: fx2, fy2, stepx2, stepy2
+        type(ptr)     :: hBrush1, hBrush2
+        integer(int32):: pix
       !integer(c_long) :: style
       !!!!!!!!!!!!!print *, "GraphWndProc called! hwnd=", transfer(hwnd, 0_i_ptr), " uMsg=", uMsg
       retval = 0
@@ -287,6 +297,36 @@ contains
             type(AppState), pointer :: st
             type(ptr) :: p
             allocate(st)
+           
+            
+
+            st%nx = 10; st%ny = 10
+            N = st%nx * st%ny
+
+            baseX = 40.0d0
+            baseY = 40.0d0
+            step  = 40.0d0
+            rad   = 20.0d0     
+            w_base = 2.0d0 * 3.141592653589793d0 / 4.0d0    ! 1 rev / 4 s
+
+            allocate(st%clocks(N))
+            allocate(st%omega_fast(N))
+            allocate(st%omega_slow(N))
+
+            do iy = 0, st%ny-1
+              do ix = 0, st%nx-1
+                k = iy*st%nx + ix + 1
+                st%clocks(k)%cx = baseX + step*real(ix, double)
+                st%clocks(k)%cy = baseY + step*real(iy, double)
+                st%clocks(k)%rx = rad
+                st%clocks(k)%ry = rad
+                st%clocks(k)%theta  = 0.0d0
+                st%clocks(k)%theta2 = 0.0d0
+
+                st%omega_fast(k) = w_base          ! per-clock fast speed
+                st%omega_slow(k) = w_base/60.0d0   ! per-clock slow speed
+              end do
+            end do
 
             st%hbg_brush = CreateSolidBrush(MakeARGB(0, 102, 0, 51))  ! background brush
 
@@ -319,27 +359,38 @@ contains
             end if
             call SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0_i_ptr)
           end if
-         
+        if (associated(st%clocks))     deallocate(st%clocks)
+        if (associated(st%omega_fast)) deallocate(st%omega_fast)
+        if (associated(st%omega_slow)) deallocate(st%omega_slow)
+        if (c_associated(st%hbg_brush)) ok = DeleteObject(st%hbg_brush)
+        deallocate(st)
           retval = 0
           
-        case (WM_TIMER)
-              if (wParam == int(TIMER_ID, i_ptr)) then
-                p = transfer(GetWindowLongPtrW(hwnd, GWLP_USERDATA), nullptr)
-                if (c_associated(p)) then
-                  call c_f_pointer(p, st)
-                  if (associated(st)) then
-                    dt = 0.016d0
-                    st%theta = st%theta + st%omega * dt
-                    if (st%theta >= 6.283185307179586d0) st%theta = st%theta - 6.283185307179586d0
-                    st%theta2 = st%theta2 + (st%omega/60.0d0) * dt
-                    if (st%theta2 >= 6.283185307179586d0) st%theta2 = st%theta2 - 6.283185307179586d0
-                    st%x = int( nint( st%cx + st%rx * cos(st%theta) ), int32 )
-                    st%y = int( nint( st%cy + st%ry * sin(st%theta) ), int32 )
-                    ok = InvalidateRect(hwnd, nullptr, 0_int32)
-                  end if
-                end if
+      case (WM_TIMER)
+          if (wParam == int(TIMER_ID, i_ptr)) then
+            p = transfer(GetWindowLongPtrW(hwnd, GWLP_USERDATA), nullptr)
+            if (c_associated(p)) then
+              call c_f_pointer(p, st)
+              if (associated(st)) then
+                dt = 0.016d0
+                N  = size(st%clocks)
+
+                do k = 1, N
+                  st%clocks(k)%theta  = st%clocks(k)%theta  + st%omega_fast(k)*dt
+                  if (st%clocks(k)%theta  >= 6.283185307179586d0) &
+                      st%clocks(k)%theta  = st%clocks(k)%theta  - 6.283185307179586d0
+
+                  st%clocks(k)%theta2 = st%clocks(k)%theta2 + st%omega_slow(k)*dt
+                  if (st%clocks(k)%theta2 >= 6.283185307179586d0) &
+                      st%clocks(k)%theta2 = st%clocks(k)%theta2 - 6.283185307179586d0
+                end do
+
+                ok = InvalidateRect(hwnd, nullptr, 0_int32)
               end if
-            retval = 0
+            end if
+          end if
+          retval = 0
+
 
 
         case (WM_SIZE)
@@ -350,73 +401,69 @@ contains
           hdc = BeginPaint(hwnd, c_loc(ps))
           ok  = GetClientRect(hwnd, c_loc(rc))
 
-          ! Pull AppState
           p = transfer(GetWindowLongPtrW(hwnd, GWLP_USERDATA), nullptr)
           if (c_associated(p)) then
             call c_f_pointer(p, st)
-            if (associated(st)) then             
+            if (associated(st)) then
               if (c_associated(st%hbg_brush)) ok = FillRect(hdc, c_loc(rc), st%hbg_brush)
-              block
-                integer(int32) :: cx, cy, wClient, hClient
-                integer(int32) :: dxl, dyl, steps, i, px, py, pix
-                real(double) :: fx, fy, stepx, stepy
-                type(ptr) :: hBrushLine
-                wClient = rc%right - rc%left
-                hClient = rc%bottom - rc%top
-                cx = int(nint(st%cx), int32)
-                cy = int(nint(st%cy), int32)
-                dxl = st%x - cx
-                dyl = st%y - cy
-                steps = max(1_int32, max(abs(dxl), abs(dyl)))
-                fx = real(cx, double);  fy = real(cy, double)
-                stepx = real(dxl, double) / real(steps, double)
-                stepy = real(dyl, double) / real(steps, double)
-                hBrushLine = CreateSolidBrush(MakeARGB(0, 255, 215, 0))  
-                pix = 1
-                do i = 1, steps
-                  px = int(nint(fx), int32)
-                  py = int(nint(fy), int32)
-                  rcSmall%left = px; rcSmall%top = py
-                  rcSmall%right = px + pix; rcSmall%bottom = py + pix
-                  ok = FillRect(hdc, c_loc(rcSmall), hBrushLine)
-                  fx = fx + stepx; fy = fy + stepy
-                end do
-                ok = DeleteObject(hBrushLine)
-              end block
 
-              block
-                integer(int32) :: cx, cy, wClient, hClient, r, r2
-                integer(int32) :: x2, y2, dx2, dy2, steps2, i2, px2, py2, pix2
-                real(double) :: fx2, fy2, stepx2, stepy2
-                type(ptr) :: hBrushLine2
-                wClient = rc%right - rc%left
-                hClient = rc%bottom - rc%top
-                cx = int(nint(st%cx), int32)
-                cy = int(nint(st%cy), int32)
-                r  = int(nint(min(st%rx, st%ry)), int32)       ! = 10
-                r2 = int( 0.60d0 * real(r, double), int32 )    ! короче, 60% длины
-                x2 = cx + int( nint( real(r2, double) * cos(st%theta2) ), int32 )
-                y2 = cy + int( nint( real(r2, double) * sin(st%theta2) ), int32 )
-                dx2 = x2 - cx
-                dy2 = y2 - cy
+              ! --- draw all clocks ---
+              N = size(st%clocks)
+              do k = 1, N
+
+                ! centers/radii per clock
+                cx = int(nint(st%clocks(k)%cx), int32)
+                cy = int(nint(st%clocks(k)%cy), int32)
+                r  = int(nint(min(st%clocks(k)%rx, st%clocks(k)%ry)), int32)
+                r2 = int(0.60d0 * real(r, double), int32)
+
+                ! --- fast hand endpoint (use rx/ry for ellipse) ---
+                x1 = cx + int( nint( st%clocks(k)%rx * cos(st%clocks(k)%theta) ), int32 )
+                y1 = cy + int( nint( st%clocks(k)%ry * sin(st%clocks(k)%theta) ), int32 )
+
+                dx1 = x1 - cx;  dy1 = y1 - cy
+                steps1 = max(1_int32, max(abs(dx1), abs(dy1)))
+                fx1 = real(cx, double);  fy1 = real(cy, double)
+                stepx1 = real(dx1, double)/real(steps1, double)
+                stepy1 = real(dy1, double)/real(steps1, double)
+
+                hBrush1 = CreateSolidBrush(MakeARGB(0, 255, 215, 0))   ! gold
+                pix = 1
+                do i1 = 1, steps1
+                  px1 = int(nint(fx1), int32)
+                  py1 = int(nint(fy1), int32)
+                  rcSmall%left = px1; rcSmall%top = py1
+                  rcSmall%right = px1 + pix; rcSmall%bottom = py1 + pix
+                  ok = FillRect(hdc, c_loc(rcSmall), hBrush1)
+                  fx1 = fx1 + stepx1; fy1 = fy1 + stepy1
+                end do
+                ok = DeleteObject(hBrush1)
+
+                ! --- slow hand endpoint (shorter, circle by r2) ---
+                x2 = cx + int( nint( real(r2, double) * cos(st%clocks(k)%theta2) ), int32 )
+                y2 = cy + int( nint( real(r2, double) * sin(st%clocks(k)%theta2) ), int32 )
+
+                dx2 = x2 - cx;  dy2 = y2 - cy
                 steps2 = max(1_int32, max(abs(dx2), abs(dy2)))
-                fx2 = real(cx, double); fy2 = real(cy, double)
-                stepx2 = real(dx2, double) / real(steps2, double)
-                stepy2 = real(dy2, double) / real(steps2, double)
-                hBrushLine2 = CreateSolidBrush(MakeARGB(0, 0, 180, 255))
-                pix2 = 1
+                fx2 = real(cx, double);  fy2 = real(cy, double)
+                stepx2 = real(dx2, double)/real(steps2, double)
+                stepy2 = real(dy2, double)/real(steps2, double)
+
+                hBrush2 = CreateSolidBrush(MakeARGB(0, 0, 180, 255))   ! cyan/blue
                 do i2 = 1, steps2
                   px2 = int(nint(fx2), int32)
                   py2 = int(nint(fy2), int32)
                   rcSmall%left = px2; rcSmall%top = py2
-                  rcSmall%right = px2 + pix2; rcSmall%bottom = py2 + pix2
-                  ok = FillRect(hdc, c_loc(rcSmall), hBrushLine2)
+                  rcSmall%right = px2 + pix; rcSmall%bottom = py2 + pix
+                  ok = FillRect(hdc, c_loc(rcSmall), hBrush2)
                   fx2 = fx2 + stepx2; fy2 = fy2 + stepy2
                 end do
-                ok = DeleteObject(hBrushLine2)
-              end block
+                ok = DeleteObject(hBrush2)
+              end do
+              ! --- end draw all clocks ---
             end if
           end if
+
           ok = EndPaint(hwnd, c_loc(ps))
           retval = 0
 
