@@ -337,7 +337,7 @@ contains
         type(ptr)     :: hBrush1, hBrush2
         integer(int32):: pix
         real(double), parameter :: PI = acos(-1.0d0)
-       
+        type(Clock), pointer :: clk
       !integer(c_long) :: style
       !!!!!!!!!!!!!print *, "GraphWndProc called! hwnd=", transfer(hwnd, 0_i_ptr), " uMsg=", uMsg
       retval = 0
@@ -350,7 +350,8 @@ contains
           resultbool = SetTimer(hwnd, TIMER_ID, 16_int32, nullptr)   ! ~60 FPS
           
           block
-            type(AppState), pointer :: st
+            type(AppState), pointer :: st 
+            
             type(ptr) :: p
             allocate(st)
            ! init backbuffer by current client size
@@ -376,12 +377,13 @@ contains
             do iy = 0, st%ny-1
               do ix = 0, st%nx-1
                 k = iy*st%nx + ix + 1
-                st%clocks(k)%cx = baseX + step*real(ix, double)
-                st%clocks(k)%cy = baseY + step*real(iy, double)
-                st%clocks(k)%rx = rad
-                st%clocks(k)%ry = rad
-                st%clocks(k)%theta  = 0.0d0
-                st%clocks(k)%theta2 = 0.0d0 
+                clk => st%clocks(k)
+                clk%cx = baseX + step*real(ix, double)
+                clk%cy = baseY + step*real(iy, double)
+                clk%rx = rad
+                clk%ry = rad
+                clk%theta  = 0.0d0
+                clk%theta2 = 0.0d0 
 
                 st%omega_fast(k) = w_base + ix         ! per-clock fast speed
                 st%omega_slow(k) = w_base/60.0d0 + 2*ix  ! per-clock slow speed
@@ -431,13 +433,14 @@ contains
                 N  = size(st%clocks)
 
                 do k = 1, N
-                  st%clocks(k)%theta  = st%clocks(k)%theta  + st%omega_fast(k)*dt
-                  if (st%clocks(k)%theta  >= 2*PI) &
-                      st%clocks(k)%theta  = st%clocks(k)%theta  - 2*PI
+                  clk => st%clocks(k)
+                  clk%theta  = clk%theta  + st%omega_fast(k)*dt
+                  if (clk%theta  >= 2*PI) &
+                      clk%theta  = clk%theta  - 2*PI
 
-                  st%clocks(k)%theta2 = st%clocks(k)%theta2 + st%omega_slow(k)*dt
-                  if (st%clocks(k)%theta2 >= 2*PI) &
-                      st%clocks(k)%theta2 = st%clocks(k)%theta2 - 2*PI
+                  clk%theta2 = clk%theta2 + st%omega_slow(k)*dt
+                  if (clk%theta2 >= 2*PI) &
+                      clk%theta2 = clk%theta2 - 2*PI
                 end do
 
                 ok = InvalidateRect(hwnd, nullptr, 0_int32)
@@ -484,20 +487,20 @@ contains
               ! 2) draw all clocks into backbuffer with simple GDI lines
               N = size(st%clocks)
               do k = 1, N
-               
-                cx = int(nint(st%clocks(k)%cx), int32)
-                cy = int(nint(st%clocks(k)%cy), int32)
+                clk => st%clocks(k)
+                cx = int(nint(clk%cx), int32)
+                cy = int(nint(clk%cy), int32)
 
                 ! fast hand endpoint (ellipse)
-                x1 = cx + int( nint( st%clocks(k)%rx * cos(st%clocks(k)%theta) ), int32 )
-                y1 = cy + int( nint( st%clocks(k)%ry * sin(st%clocks(k)%theta) ), int32 )
+                x1 = cx + int( nint( clk%rx * cos(clk%theta) ), int32 )
+                y1 = cy + int( nint( clk%ry * sin(clk%theta) ), int32 )
 
                 call DrawHand(st%hMemDC, cx, cy, x1, y1, MakeARGB(0,255,215,0), 1)  ! gold
 
                 ! slow hand endpoint (60% of radius, circle)
-                r2 = int( 0.60d0 * nint(min(st%clocks(k)%rx, st%clocks(k)%ry)), int32 )
-                x2 = cx + int( nint( real(r2,double) * cos(st%clocks(k)%theta2) ), int32 )
-                y2 = cy + int( nint( real(r2,double) * sin(st%clocks(k)%theta2) ), int32 )
+                r2 = int( 0.60d0 * nint(min(clk%rx, clk%ry)), int32 )
+                x2 = cx + int( nint( real(r2,double) * cos(clk%theta2) ), int32 )
+                y2 = cy + int( nint( real(r2,double) * sin(clk%theta2) ), int32 )
 
                 call DrawHand(st%hMemDC, cx, cy, x2, y2, MakeARGB(0,  0,180,255), 1) ! cyan/blue
               end do
