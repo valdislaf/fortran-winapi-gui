@@ -338,6 +338,17 @@ contains
         integer(int32):: pix
         real(double), parameter :: PI = acos(-1.0d0)
         type(Clock), pointer :: clk
+        
+        ! --- параметры профиля скорости:
+        real(double), parameter :: f_center = PI   ! множитель в центре (быстрее)
+        real(double), parameter :: f_edge   = 1.00d0   ! множитель у краёв (медленнее)
+        real(double), parameter :: falloffP = 2.0d0    ! степень плавности (2 = квадратично)
+
+        ! центр в индексах (не в пикселях)
+        real(double) :: cxg, cyg, dxg, dyg, dist, Rmax, mix
+        real(double) :: mix2
+        ! Gaussian bump: mix = f_edge + (f_center - f_edge)*exp(-(dist/sigma)^2)
+        real(double), parameter :: sigma = 1.11d0
       !integer(c_long) :: style
       !!!!!!!!!!!!!print *, "GraphWndProc called! hwnd=", transfer(hwnd, 0_i_ptr), " uMsg=", uMsg
       retval = 0
@@ -361,18 +372,25 @@ contains
 
             st%hMemDC = CreateCompatibleDC(nullptr)
            
-            st%nx = 10; st%ny = 10
+            st%nx = 60; st%ny = 60
             N = st%nx * st%ny
 
-            baseX = 40.0d0
-            baseY = 40.0d0
-            step  = 40.0d0
+            baseX = 10.0d0
+            baseY = 10.0d0
+            step  = 10.0d0
             rad   = 20.0d0     
             w_base = 2.0d0 * PI / 4.0d0    ! 1 rev / 4 s
 
             allocate(st%clocks(N))
             allocate(st%omega_fast(N))
             allocate(st%omega_slow(N))
+
+           
+
+            cxg = 0.5d0 * real(st%nx - 1, double)
+            cyg = 0.5d0 * real(st%ny - 1, double)
+            Rmax = sqrt( cxg*cxg + cyg*cyg )
+            if (Rmax <= 0.0d0) Rmax = 1.0d0  ! защита на случай 1×1
 
             do iy = 0, st%ny-1
               do ix = 0, st%nx-1
@@ -383,25 +401,39 @@ contains
                 clk%rx = rad
                 clk%ry = rad
                 clk%theta  = 0.0d0
-                clk%theta2 = 0.0d0 
+                clk%theta2 = 0.0d0
 
-                st%omega_fast(k) = w_base + ix         ! per-clock fast speed
-                st%omega_slow(k) = w_base/60.0d0 + 2*ix  ! per-clock slow speed
+                ! --- нормированная дистанция 0..1 от центра
+                dxg  = real(ix, double) - cxg
+                dyg  = real(iy, double) - cyg
+                dist = sqrt(dxg*dxg + dyg*dyg) / Rmax        ! 0 в центре, 1 на углах
+
+                ! --- профиль: mix = 1 - dist^p  (1 в центре → 0 у края)
+                mix = 1.0d0 - dist**falloffP
+
+                ! --- итоговый множитель между f_edge и f_center
+                !     (в центре ≈ f_center, у краёв ≈ f_edge)
+               !mix = f_edge + (f_center - f_edge) * mix
+                mix = f_edge + (f_center - f_edge) * exp( - (dist/sigma)**2 )
+                mix2 = real(NINT(mix * 100.0d0)) / 100.0d0
+                st%omega_fast(k) = w_base * mix2 *10.0d0 
+                st%omega_slow(k) = (w_base/60.0d0) * mix2*10.0d0 
               end do
             end do
 
-            st%hbg_brush = CreateSolidBrush(MakeARGB(0, 102, 0, 51))  ! background brush
 
-            st%w = 6; st%h = 6
-            st%theta  = 0.0d0
-            st%theta2 = 0.0d0
-            st%omega  = 2.0d0 * PI / 4.0d0
-
-            ! fixed tiny clock in the top-left corner:
-            st%cx = 40.0d0          ! center X (pixels)
-            st%cy = 40.0d0          ! center Y
-            st%rx = 20.0d0          ! radius X 
-            st%ry = 20.0d0          ! radius Y
+            st%hbg_brush = CreateSolidBrush(MakeARGB(0, 255, 255, 255))  ! background brush
+            !
+            !st%w = 6; st%h = 6
+            !st%theta  = 0.0d0
+            !st%theta2 = 0.0d0
+            !st%omega  = 2.0d0 * PI / 4.0d0
+            !
+            !! fixed tiny clock in the top-left corner:
+            !st%cx = 10.0d0          ! center X (pixels)
+            !st%cy = 10.0d0          ! center Y
+            !st%rx = 5.0d0          ! radius X 
+            !st%ry = 5.0d0          ! radius Y
 
             p = c_loc(st)
             call SetWindowLongPtrW(hwnd, GWLP_USERDATA, transfer(p, 0_i_ptr))
@@ -495,14 +527,15 @@ contains
                 x1 = cx + int( nint( clk%rx * cos(clk%theta) ), int32 )
                 y1 = cy + int( nint( clk%ry * sin(clk%theta) ), int32 )
 
-                call DrawHand(st%hMemDC, cx, cy, x1, y1, MakeARGB(0,255,215,0), 1)  ! gold
+                
 
                 ! slow hand endpoint (60% of radius, circle)
                 r2 = int( 0.60d0 * nint(min(clk%rx, clk%ry)), int32 )
                 x2 = cx + int( nint( real(r2,double) * cos(clk%theta2) ), int32 )
                 y2 = cy + int( nint( real(r2,double) * sin(clk%theta2) ), int32 )
 
-                call DrawHand(st%hMemDC, cx, cy, x2, y2, MakeARGB(0,  0,180,255), 1) ! cyan/blue
+                call DrawHand(st%hMemDC, cx, cy, x2, y2, MakeARGB(0,  100,100,100), 2) 
+                call DrawHand(st%hMemDC, cx, cy, x1, y1, MakeARGB(0,0,0,0), 2)  ! fast over
               end do
 
               ! 3) blit backbuffer -> screen
