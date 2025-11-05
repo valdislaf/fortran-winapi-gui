@@ -83,6 +83,12 @@ module win_types
     character(1)         :: rgbReserved(32)
   end type PAINTSTRUCT
 
+type :: ColorRef
+  integer(int32) :: A  = 0
+  integer(int32) :: R  = 0  
+  integer(int32) :: G  = 0
+  integer(int32) :: B  = 0
+end type ColorRef
 ! geometry only
 type :: Clock
   real(double) :: cx, cy      ! center
@@ -121,6 +127,7 @@ type :: AppState
   type(ptr)    :: hBmpOld   = nullptr   ! old selected bitmap
   integer(int32) :: backW   = 0
   integer(int32) :: backH   = 0
+  type(ColorRef), pointer   :: color_ref(:) => null()
+  real(double), pointer :: hue(:) => null()   ! размер N
 end type AppState
-
 end module win_types

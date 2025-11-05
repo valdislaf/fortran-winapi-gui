@@ -337,6 +337,7 @@ contains
         type(ptr)     :: hBrush1, hBrush2
         integer(int32):: pix
         real(double), parameter :: PI = acos(-1.0d0)
+        real(double), parameter :: nsh = asin(-1.0d0)
         type(Clock), pointer :: clk
         
         ! --- параметры профиля скорости:
@@ -349,6 +350,10 @@ contains
         real(double) :: mix2
         ! Gaussian bump: mix = f_edge + (f_center - f_edge)*exp(-(dist/sigma)^2)
         real(double), parameter :: sigma = 1.11d0
+        real(double) :: t, H
+        integer(int32) :: r8, g8, b8
+        ! пример: +30° оттенок для «медленной»
+        integer(int32) :: r9,g9,b9, clB11, clG11, clR11
       !integer(c_long) :: style
       !!!!!!!!!!!!!print *, "GraphWndProc called! hwnd=", transfer(hwnd, 0_i_ptr), " uMsg=", uMsg
       retval = 0
@@ -372,19 +377,21 @@ contains
 
             st%hMemDC = CreateCompatibleDC(nullptr)
            
-            st%nx = 60; st%ny = 60
+            st%nx = 100; st%ny = 100
             N = st%nx * st%ny
 
-            baseX = 10.0d0
-            baseY = 10.0d0
-            step  = 10.0d0
-            rad   = 20.0d0     
-            w_base = 2.0d0 * PI / 4.0d0    ! 1 rev / 4 s
+            baseX = 8.0d0
+            baseY = 8.0d0
+            step  = 5.0d0
+            rad   = 4.0d0     
+            w_base = 8.0d0 * PI / 4.0d0    ! 1 rev / 4 s
 
             allocate(st%clocks(N))
             allocate(st%omega_fast(N))
             allocate(st%omega_slow(N))
-
+            allocate(st%color_ref(N))
+            allocate(st%hue(N))
+          
            
 
             cxg = 0.5d0 * real(st%nx - 1, double)
@@ -402,6 +409,10 @@ contains
                 clk%ry = rad
                 clk%theta  = 0.0d0
                 clk%theta2 = 0.0d0
+                 ! t=0 в центре (красный), t=1 на краю (фиолетовый)
+                t = max(0.0d0, min(1.0d0, dist))
+                H = 270.0d0 * t           ! 0°=red → 270°=violet
+                call hsv_to_rgb_u8(H, 1.0d0, 1.0d0, r8, g8, b8)
 
                 ! --- нормированная дистанция 0..1 от центра
                 dxg  = real(ix, double) - cxg
@@ -410,19 +421,28 @@ contains
 
                 ! --- профиль: mix = 1 - dist^p  (1 в центре → 0 у края)
                 mix = 1.0d0 - dist**falloffP
-
+                
                 ! --- итоговый множитель между f_edge и f_center
                 !     (в центре ≈ f_center, у краёв ≈ f_edge)
                !mix = f_edge + (f_center - f_edge) * mix
-                mix = f_edge + (f_center - f_edge) * exp( - (dist/sigma)**2 )
-                mix2 = real(NINT(mix * 100.0d0)) / 100.0d0
-                st%omega_fast(k) = w_base * mix2 *10.0d0 
-                st%omega_slow(k) = (w_base/60.0d0) * mix2*10.0d0 
+                mix = f_edge + (f_center - f_edge) * exp( - (dist/sigma)**1 )
+                mix2 = real(NINT(mix * 1000.0d0)) / 1000.0d0
+                st%omega_fast(k) = w_base * mix2 *5.0d0 
+                st%omega_slow(k) = (w_base/60.0d0) * mix2*5.0d0 
+               
+               
+                st%color_ref(k)%A = 0
+                st%color_ref(k)%R = r8
+                st%color_ref(k)%G = g8
+                st%color_ref(k)%B = b8
+                t = max(0.0d0, min(1.0d0, dist))
+                H = 270.0d0 * t
+                st%hue(k) = H
               end do
             end do
 
 
-            st%hbg_brush = CreateSolidBrush(MakeARGB(0, 255, 255, 255))  ! background brush
+            st%hbg_brush = CreateSolidBrush(MakeARGB(0, 0, 0, 0))  ! background brush
             !
             !st%w = 6; st%h = 6
             !st%theta  = 0.0d0
@@ -527,15 +547,25 @@ contains
                 x1 = cx + int( nint( clk%rx * cos(clk%theta) ), int32 )
                 y1 = cy + int( nint( clk%ry * sin(clk%theta) ), int32 )
 
-                
-
+                !print *, "theta  ", clk%theta
+                !print *, "theta2 ", clk%theta2
                 ! slow hand endpoint (60% of radius, circle)
                 r2 = int( 0.60d0 * nint(min(clk%rx, clk%ry)), int32 )
                 x2 = cx + int( nint( real(r2,double) * cos(clk%theta2) ), int32 )
                 y2 = cy + int( nint( real(r2,double) * sin(clk%theta2) ), int32 )
-
-                call DrawHand(st%hMemDC, cx, cy, x2, y2, MakeARGB(0,  100,100,100), 2) 
-                call DrawHand(st%hMemDC, cx, cy, x1, y1, MakeARGB(0,0,0,0), 2)  ! fast over
+                
+                call hsv_to_rgb_u8( modulo(st%hue(k) + 90.0d0, 360.0d0), 1.0d0, 1.0d0, r9, g9, b9 )
+                clB11 = clamp255(b9- (1-sin(clk%theta))*10)
+                clG11 = clamp255(g9- (1-sin(clk%theta))*10)
+                clR11 = clamp255(r9- (1- sin(clk%theta))*10)
+                call DrawHand(st%hMemDC, cx, cy, x2, y2, MakeARGB(0, clB11, clG11, clR11), 1)                  
+                clB11 = clamp255(st%color_ref(k)%B- (1-cos(clk%theta))*10)
+                clG11 = clamp255(st%color_ref(k)%G- (1-cos(clk%theta))*10)
+                clR11 = clamp255(st%color_ref(k)%R- (1- cos(clk%theta))*10)
+                !print *, "clB11  ", clB11
+                !print *, "clG11  ", clG11
+                !print *, "clR11  ", clR11
+                call DrawHand(st%hMemDC, cx, cy, x1, y1, MakeARGB(st%color_ref(k)%A, clB11, clG11, clR11), 1)  ! fast over
               end do
 
               ! 3) blit backbuffer -> screen
@@ -608,7 +638,37 @@ contains
             if (associated(st%omega_fast))  deallocate(st%omega_fast)
             if (associated(st%omega_slow))  deallocate(st%omega_slow)
 
-  end subroutine CleanupAppState
+          end subroutine CleanupAppState
+      ! -> 0..255 int
+            pure integer(int32) function clamp255(x) result(i)
+              use iso_c_binding, only: c_double
+              real(c_double), value :: x
+              real(c_double) :: y
+              y = max(0.0d0, min(255.0d0, x))
+              i = int(nint(y), int32)
+            end function
+
+            ! HSV (H в градусах, S,V 0..1) -> 8-битные R,G,B
+            subroutine hsv_to_rgb_u8(H, S, V, r8, g8, b8)
+              real(double), value :: H, S, V
+              integer(int32) :: r8, g8, b8
+              real(double) :: C, X, m, Hp, rp, gp, bp
+              C  = V * S
+              Hp = H / 60.0d0
+              X  = C * (1.0d0 - abs(mod(Hp, 2.0d0) - 1.0d0))
+              select case (int(floor(Hp)))
+              case (0); rp=C; gp=X; bp=0.0d0
+              case (1); rp=X; gp=C; bp=0.0d0
+              case (2); rp=0.0d0; gp=C; bp=X
+              case (3); rp=0.0d0; gp=X; bp=C
+              case (4); rp=X; gp=0.0d0; bp=C
+              case default; rp=C; gp=0.0d0; bp=X
+              end select
+              m  = V - C
+              r8 = clamp255( (rp+m)*255.0d0 )
+              g8 = clamp255( (gp+m)*255.0d0 )
+              b8 = clamp255( (bp+m)*255.0d0 )
+            end subroutine
 
     end function GraphWndProc
 
