@@ -2,7 +2,7 @@
 module win_types
   use iso_c_binding, only: int32 => c_int32_t, i_ptr => c_intptr_t, ptr => c_ptr, f_ptr => c_funptr, &
       nullptr => c_null_ptr, char => c_char, char0 => c_null_char, bool => c_bool, long => c_long, &
-      double => c_double                                         
+      double => c_double, int8 => c_int8_t                                         
   implicit none
  
  ! Constants for windows and messages
@@ -16,6 +16,7 @@ module win_types
   integer(int32), parameter :: ID_ARROW = 32512 ! Cursor identifier (arrow)
   
   ! Windows messages
+  integer(int32), parameter :: WM_ERASEBKGND = 20   ! 0x0014
   integer(int32), parameter :: WM_CREATE           = 1
   integer(int32), parameter :: WM_DESTROY          = 2
   integer(int32), parameter :: WM_SIZE             = 5
@@ -36,20 +37,21 @@ module win_types
   integer(i_ptr), parameter :: ID_BUTTON2        = 1002
 
   ! Window class structure
-  type, bind(C) :: WNDCLASSEX
-    integer(int32)     :: cbSize
-    integer(int32)     :: style
-    type(f_ptr)      :: lpfnWndProc
-    integer(int32)     :: cbClsExtra
-    integer(int32)     :: cbWndExtra
-    type(ptr)        :: hInstance
-    type(ptr)        :: hIcon
-    type(ptr)        :: hCursor
-    type(ptr)        :: hbrBackground
-    type(ptr)        :: lpszMenuName
-    type(ptr)        :: lpszClassName
-    type(ptr)        :: hIconSm
-  end type
+    type, bind(C) :: WNDCLASSEX
+      integer(int32) :: cbSize
+      integer(int32) :: style
+      type(f_ptr)     :: lpfnWndProc
+      integer(int32) :: cbClsExtra
+      integer(int32) :: cbWndExtra
+      type(ptr)        :: hInstance
+      type(ptr)        :: hIcon
+      type(ptr)        :: hCursor
+      type(ptr)        :: hbrBackground   ! HBRUSH
+      type(ptr)        :: lpszMenuName    ! LPCWSTR
+      type(ptr)        :: lpszClassName   ! LPCWSTR
+      type(ptr)        :: hIconSm
+    end type
+
 
   ! Message structure
   type, bind(C) :: MSG_T
@@ -66,22 +68,35 @@ module win_types
     type(ptr) :: hPanel
     type(ptr) :: hwin 
   end type
-  
-  type, bind(C) :: RECT
-    integer(long) :: left
-    integer(long) :: top
-    integer(long) :: right
-    integer(long) :: bottom
-  end type RECT
 
-  type, bind(C) :: PAINTSTRUCT
-    type(ptr)            :: hdc            ! HDC
-    integer(int32)       :: fErase         ! BOOL
-    type(RECT)           :: rcPaint
-    integer(int32)       :: fRestore
-    integer(int32)       :: fIncUpdate
-    character(1)         :: rgbReserved(32)
-  end type PAINTSTRUCT
+   
+  !type, bind(C) :: RECT
+  !  integer(long) :: left
+  !  integer(long) :: top
+  !  integer(long) :: right
+  !  integer(long) :: bottom
+  !end type RECT
+  !
+  !type, bind(C) :: PAINTSTRUCT
+  !  type(ptr)            :: hdc            ! HDC
+  !  integer(int32)       :: fErase         ! BOOL
+  !  type(RECT)           :: rcPaint
+  !  integer(int32)       :: fRestore
+  !  integer(int32)       :: fIncUpdate
+  !  character(1)         :: rgbReserved(32)
+  !end type PAINTSTRUCT
+type, bind(C) :: RECT
+  integer(int32) :: left, top, right, bottom
+end type
+
+type, bind(C) :: PAINTSTRUCT
+  type(ptr)        :: hdc             ! HDC
+  integer(int32) :: fErase          ! BOOL
+  type(RECT)         :: rcPaint
+  integer(int32) :: fRestore        ! BOOL
+  integer(int32) :: fIncUpdate      ! BOOL
+  integer(int8)  :: rgbReserved(32) ! BYTE[32]
+end type
 
 type :: ColorRef
   integer(int32) :: A  = 0

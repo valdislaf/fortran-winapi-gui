@@ -102,20 +102,26 @@ module win_api
       integer(i_ptr), value :: dwNewLong
     end subroutine
     
+    !function GetWindowRect(hWnd, lpRect) bind(C, name="GetWindowRect")
+    !  use standard
+    !  type(ptr), value :: hWnd
+    !  type(ptr) :: lpRect
+    !  logical(bool) :: GetWindowRect
+    !end function
+    
     function GetWindowRect(hWnd, lpRect) bind(C, name="GetWindowRect")
       use standard
       type(ptr), value :: hWnd
-      type(ptr) :: lpRect
-      logical(bool) :: GetWindowRect
-    end function
-    
-    function GetClientRect(hWnd, lpRect) bind(C, name="GetClientRect")
-      use iso_c_binding, only: c_ptr, c_int32_t
-      type(c_ptr), value :: hWnd     ! HWND
-      type(c_ptr), value :: lpRect   ! LPRECT
-      integer(c_int32_t) :: GetClientRect
+      type(ptr), value :: lpRect     ! LPRECT
+      integer(int32) :: GetWindowRect  ! BOOL
     end function
 
+    !function GetClientRect(hWnd, lpRect) bind(C, name="GetClientRect")
+    !  use iso_c_binding, only: c_ptr, c_int32_t
+    !  type(c_ptr), value :: hWnd     ! HWND
+    !  type(c_ptr), value :: lpRect   ! LPRECT
+    !  integer(c_int32_t) :: GetClientRect
+    !end function
     
     function InvalidateRect(hWnd, lpRect, bErase) bind(C, name="InvalidateRect")
       use standard
@@ -131,20 +137,42 @@ module win_api
       type(ptr), value :: lpCursorName
       type(ptr) :: LoadCursorW
     end function    
-   
-    function BeginPaint(hWnd, lpPaint) bind(C, name="BeginPaint")
-      use standard
-      type(ptr), value        :: hWnd
-      type(ptr)               :: lpPaint
-      type(ptr)               :: BeginPaint  ! возвращает HDC
-    end function 
+    !
+    !function BeginPaint(hWnd, lpPaint) bind(C, name="BeginPaint")
+    !  use standard
+    !  type(ptr), value        :: hWnd
+    !  type(ptr)               :: lpPaint
+    !  type(ptr)               :: BeginPaint  ! возвращает HDC
+    !end function 
+    !
+    !  function EndPaint(hWnd, lpPaint) bind(C, name="EndPaint")
+    !    use standard
+    !    type(ptr), value :: hWnd
+    !    type(ptr), value :: lpPaint
+    !    integer(int32)      :: EndPaint    ! возвращает BOOL
+    !  end function
 
-      function EndPaint(hWnd, lpPaint) bind(C, name="EndPaint")
+    function BeginPaint(hWnd, lpPaint) bind(C, name="BeginPaint")
         use standard
-        type(ptr), value :: hWnd
-        type(ptr), value :: lpPaint
-        integer(int32)      :: EndPaint    ! возвращает BOOL
-      end function
+        type(ptr), value :: hWnd        ! HWND
+        type(ptr)        :: lpPaint     ! LPPAINTSTRUCT (by reference!)
+        type(ptr)        :: BeginPaint  ! HDC
+    end function
+
+    function EndPaint(hWnd, lpPaint) bind(C, name="EndPaint")
+        use standard
+        type(ptr),   value :: hWnd      ! HWND
+        type(ptr),   value :: lpPaint   ! const PAINTSTRUCT*
+        integer(int32)   :: EndPaint  ! BOOL
+    end function
+
+    function GetClientRect(hWnd, lpRect) bind(C, name="GetClientRect")
+        use standard
+        type(ptr), value :: hWnd        ! HWND
+        type(ptr), value :: lpRect      ! LPRECT
+        integer(int32) :: GetClientRect ! BOOL            
+    end function
+    
 
       function FillRect(hdc, lprc, hbr) bind(C, name="FillRect")
         use standard
@@ -245,6 +273,32 @@ module win_api
       integer(int32), value :: fnPenStyle, width, color
       type(ptr) :: CreatePen
     end function
+    
+    ! GDI stock-pen + цвет
+    function GetStockObject(i) bind(C,name="GetStockObject") result(h)
+      use standard
+      integer(int32), value :: i
+      type(ptr) :: h
+    end function
+    subroutine SetDCPenColor(hdc, color) bind(C,name="SetDCPenColor")
+      use standard
+      type(ptr), value :: hdc
+      integer(int32), value :: color
+    end subroutine
+
+    ! Диагностика: сколько GDI/USER-объектов у процесса
+    function GetGuiResources(hProcess, uiFlags) bind(C,name="GetGuiResources")
+      use standard
+      type(ptr), value :: hProcess
+      integer(int32), value :: uiFlags
+      integer(int32) :: GetGuiResources
+    end function
+
+    ! Текущий процесс (для GetGuiResources)
+    function GetCurrentProcess() bind(C,name="GetCurrentProcess")
+      use standard
+      type(ptr) :: GetCurrentProcess
+    end function
 
   end interface
   
@@ -263,12 +317,12 @@ contains
       integer(i_ptr) :: userData
       integer(int32) :: resultbool
       integer(i_ptr) :: resultInvalidate
-      
+      integer(int32) :: gdiCnt, usrCnt
       !logical(c_bool) :: settrue
       
       select case (Msg)
       case (WM_CREATE) 
-       
+        gdiCnt = GetGuiResources(GetCurrentProcess(), 0)  ! GDI
         appDataPtr = transfer(lParam, c_null_ptr)
         call SetWindowLongPtrW(hWnd, -21, transfer(appDataPtr, 0_i_ptr))
         res = 0
@@ -278,6 +332,7 @@ contains
         call PostQuitMessage(0) 
         res = 0
       case (WM_SIZE) 
+          gdiCnt = GetGuiResources(GetCurrentProcess(), 0)  ! GDI
           ! Window resize message
           lp32 = transfer(lParam, int32)
           width  = iand(lp32, 65535)              ! window width = lower 16 bits
@@ -289,9 +344,9 @@ contains
           appDataPtr = transfer(userData, appDataPtr)
           call c_f_pointer(appDataPtr, appDataInst)
           
-          resultInvalidate = InvalidateRect(hwnd, nullptr, 1)
-          resultInvalidate = InvalidateRect(appDataInst%hwin, nullptr, 1)
-          resultInvalidate = InvalidateRect(appDataInst%hPanel, nullptr, 1)
+          resultInvalidate = InvalidateRect(hwnd, nullptr, 0_int32)
+          resultInvalidate = InvalidateRect(appDataInst%hwin, nullptr,0_int32)
+          resultInvalidate = InvalidateRect(appDataInst%hPanel, nullptr, 0_int32)
           call MoveWindow(appDataInst%hwin, panelActualWidth, 0, &
                          width - panelActualWidth , height, 1)
           call MoveWindow(appDataInst%hPanel, 0, 0, &
@@ -302,375 +357,350 @@ contains
 
       case default
         ! All other messages — default processing
+        gdiCnt = GetGuiResources(GetCurrentProcess(), 0)  ! GDI
         res = DefWindowProcW(hWnd, Msg, wParam, lParam)
+        
       end select
     end function WndProc
    
-    function GraphWndProc(hwnd, uMsg, wParam, lParam) bind(C, name="GraphWndProc") result(retval)
+   function GraphWndProc(hwnd, uMsg, wParam, lParam) bind(C, name="GraphWndProc") result(retval)
       use standard
       type(ptr), value :: hwnd
       type(PAINTSTRUCT), target :: ps
-      type(RECT), target :: rc      
-      
-        !type(RECT), target :: rcc
-        type(ptr) :: hdc
-        integer(int32), value :: uMsg
-        integer(i_ptr), value :: wParam, lParam
-        integer(i_ptr) :: retval
-        integer(int32) :: resultbool
-        integer(i_ptr) :: resultInvalidate
-        integer(i_ptr) :: userData     
-        type(RECT), target :: rcSmall
-        type(ptr) :: hRedBrush
-        type(AppState), pointer :: st        ! <-- нужен POINTER
-        type(ptr) :: p                       ! <-- c_ptr
-        real(double) :: dt
-        integer(int32) :: ix, iy, k, N
-        real(double) :: baseX, baseY, step, rad, w_base       
-        integer(int32) :: ok   ! <- add this near other locals
-        type(ptr)     :: tmpSel   ! для возврата SelectObject
-        integer(int32) :: cx, cy, r, r2
-        integer(int32) :: x1, y1, dx1, dy1, steps1, i1, px1, py1
-        integer(int32) :: x2, y2, dx2, dy2, steps2, i2, px2, py2
-        real(double)  :: fx1, fy1, stepx1, stepy1
-        real(double)  :: fx2, fy2, stepx2, stepy2
-        type(ptr)     :: hBrush1, hBrush2
-        integer(int32):: pix
-        real(double), parameter :: PI = acos(-1.0d0)
-        real(double), parameter :: nsh = asin(-1.0d0)
-        type(Clock), pointer :: clk
-        
-        ! --- параметры профиля скорости:
-        real(double), parameter :: f_center = PI   ! множитель в центре (быстрее)
-        real(double), parameter :: f_edge   = 1.00d0   ! множитель у краёв (медленнее)
-        real(double), parameter :: falloffP = 2.0d0    ! степень плавности (2 = квадратично)
+      type(RECT),        target :: rc
 
-        ! центр в индексах (не в пикселях)
-        real(double) :: cxg, cyg, dxg, dyg, dist, Rmax, mix
-        real(double) :: mix2
-        ! Gaussian bump: mix = f_edge + (f_center - f_edge)*exp(-(dist/sigma)^2)
-        real(double), parameter :: sigma = 1.11d0
-        real(double) :: t, H
-        integer(int32) :: r8, g8, b8
-        ! пример: +30° оттенок для «медленной»
-        integer(int32) :: r9,g9,b9, clB11, clG11, clR11
-      !integer(c_long) :: style
-      !!!!!!!!!!!!!print *, "GraphWndProc called! hwnd=", transfer(hwnd, 0_i_ptr), " uMsg=", uMsg
+      type(ptr)  :: hdc
+      integer(int32),  value :: uMsg
+      integer(i_ptr),  value :: wParam, lParam
+      integer(i_ptr)          :: retval
+      integer(int32)          :: resultbool
+      integer(i_ptr)          :: resultInvalidate
+      integer(i_ptr)          :: userData
+      type(RECT),      target :: rcSmall
+      type(ptr)               :: hRedBrush
+      type(AppState),  pointer :: st
+      type(ptr)               :: p
+
+      ! локальные для рисования
+      real(double) :: dt
+      integer(int32) :: ix, iy, k, N
+      real(double)   :: baseX, baseY, step, rad, w_base
+      integer(int32) :: ok, ignore
+      type(ptr)      :: tmpSel
+      integer(int32) :: cx, cy, r2
+      integer(int32) :: x1, y1, x2, y2
+      integer(int32) :: r9,g9,b9, clB11, clG11, clR11
+      type(Clock), pointer :: clk
+
+      real(double), parameter :: PI   = acos(-1.0d0)
+      real(double), parameter :: sigma= 1.11d0
+      real(double), parameter :: f_center = PI
+      real(double), parameter :: f_edge   = 1.0d0
+      real(double), parameter :: falloffP = 2.0d0
+
+      real(double) :: cxg, cyg, dxg, dyg, dist, Rmax, mix, mix2, t, H
+      integer(int32) :: r8, g8, b8
+      integer(int32), parameter :: DC_PEN = 19
+      integer(int32), parameter :: GR_GDIOBJECTS = 0, GR_USEROBJECTS = 1
+      integer(int32) :: le
+      integer(int32) :: gdiCnt, usrCnt     
+     
+      !print *, "sizeof RECT=", c_sizeof(rc)            ! ожидается 16
+      !print *, "sizeof PAINTSTRUCT=", c_sizeof(ps)      ! ожидается 72 (x64)
+     
       retval = 0
       resultInvalidate = 0
-      
+
       select case (uMsg)
-          
-      case (WM_CREATE) 
-        ! Установить таймер
-          resultbool = SetTimer(hwnd, TIMER_ID, 16_int32, nullptr)   ! ~60 FPS
-          
-          block
-            type(AppState), pointer :: st 
-            
-            type(ptr) :: p
-            allocate(st)
-           ! init backbuffer by current client size
+
+      case (WM_CREATE)
+        resultbool = SetTimer(hwnd, TIMER_ID, 16_int32, nullptr)  ! ~60 FPS
+
+        block
+          type(AppState), pointer :: st_local
+          type(ptr) :: p_local
+          allocate(st_local)
+
+          ok = GetClientRect(hwnd, c_loc(rc))
+          st_local%backW = rc%right - rc%left
+          st_local%backH = rc%bottom - rc%top
+
+          ! создаём memory-DC; битмап пока не создаём (лениво в WM_PAINT)
+          st_local%hMemDC  = CreateCompatibleDC(nullptr)
+          st_local%hBmp    = c_null_ptr
+          st_local%hBmpOld = c_null_ptr
+
+          st_local%nx = 100; st_local%ny = 100
+          N = st_local%nx * st_local%ny
+
+          baseX = 8.0d0
+          baseY = 8.0d0
+          step  = 5.0d0
+          rad   = 4.0d0
+          w_base = 8.0d0 * PI / 4.0d0
+
+          allocate(st_local%clocks(N))
+          allocate(st_local%omega_fast(N))
+          allocate(st_local%omega_slow(N))
+          allocate(st_local%color_ref(N))
+          allocate(st_local%hue(N))
+
+          cxg = 0.5d0 * real(st_local%nx - 1, double)
+          cyg = 0.5d0 * real(st_local%ny - 1, double)
+          Rmax = sqrt(cxg*cxg + cyg*cyg); if (Rmax <= 0.0d0) Rmax = 1.0d0
+
+          do iy = 0, st_local%ny-1
+            do ix = 0, st_local%nx-1
+              k = iy*st_local%nx + ix + 1
+              clk => st_local%clocks(k)
+              clk%cx = baseX + step*real(ix, double)
+              clk%cy = baseY + step*real(iy, double)
+              clk%rx = rad; clk%ry = rad
+              clk%theta  = 0.0d0
+              clk%theta2 = 0.0d0
+
+              dxg  = real(ix, double) - cxg
+              dyg  = real(iy, double) - cyg
+              dist = sqrt(dxg*dxg + dyg*dyg) / Rmax
+              t    = max(0.0d0, min(1.0d0, dist))
+
+              H = 270.0d0 * t
+              call hsv_to_rgb_u8(H, 1.0d0, 1.0d0, r8, g8, b8)
+
+              mix  = f_edge + (f_center - f_edge) * exp( - (dist/sigma)**1 )
+              mix2 = real(NINT(mix * 1000.0d0)) / 1000.0d0
+
+              st_local%omega_fast(k) = w_base * mix2 * 5.0d0
+              st_local%omega_slow(k) = (w_base/60.0d0) * mix2 * 5.0d0
+
+              st_local%color_ref(k)%A = 0
+              st_local%color_ref(k)%R = r8
+              st_local%color_ref(k)%G = g8
+              st_local%color_ref(k)%B = b8
+              st_local%hue(k) = H
+            end do
+          end do
+
+          st_local%hbg_brush = CreateSolidBrush(MakeARGB(0,0,0,0))
+
+          p_local = c_loc(st_local)
+          call SetWindowLongPtrW(hwnd, GWLP_USERDATA, transfer(p_local, 0_i_ptr))
+        end block
+        retval = 0
+
+      case (WM_DESTROY)
+        resultbool = KillTimer(hwnd, TIMER_ID)
+
+        p = transfer(GetWindowLongPtrW(hwnd, GWLP_USERDATA), nullptr)
+        if (c_associated(p)) then
+          call c_f_pointer(p, st)
+          call CleanupAppState(st)
+          if (associated(st)) deallocate(st)
+          call SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0_i_ptr)
+        end if
+        retval = 0
+
+      case (WM_TIMER)
+       
+        if (wParam == int(TIMER_ID, i_ptr)) then
+          p = transfer(GetWindowLongPtrW(hwnd, GWLP_USERDATA), nullptr)
+          if (c_associated(p)) then
+            call c_f_pointer(p, st)
+            if (associated(st)) then
+              dt = 0.016d0
+              N  = size(st%clocks)
+              do k = 1, N
+                clk => st%clocks(k)
+                clk%theta  = clk%theta  + st%omega_fast(k)*dt
+                if (clk%theta  >= 2*PI) clk%theta  = clk%theta  - 2*PI
+                clk%theta2 = clk%theta2 + st%omega_slow(k)*dt
+                if (clk%theta2 >= 2*PI) clk%theta2 = clk%theta2 - 2*PI
+              end do
+              ok = InvalidateRect(hwnd, nullptr, 0_int32)
+              
+            end if
+          end if
+        end if
+        
+        retval = 0
+
+      case (WM_SIZE)
+        p = transfer(GetWindowLongPtrW(hwnd, GWLP_USERDATA), nullptr)
+        if (c_associated(p)) then
+          call c_f_pointer(p, st)
+          if (associated(st)) then
             ok = GetClientRect(hwnd, c_loc(rc))
             st%backW = rc%right - rc%left
             st%backH = rc%bottom - rc%top
 
-            st%hMemDC = CreateCompatibleDC(nullptr)
-           
-            st%nx = 100; st%ny = 100
-            N = st%nx * st%ny
-
-            baseX = 8.0d0
-            baseY = 8.0d0
-            step  = 5.0d0
-            rad   = 4.0d0     
-            w_base = 8.0d0 * PI / 4.0d0    ! 1 rev / 4 s
-
-            allocate(st%clocks(N))
-            allocate(st%omega_fast(N))
-            allocate(st%omega_slow(N))
-            allocate(st%color_ref(N))
-            allocate(st%hue(N))
-          
-           
-
-            cxg = 0.5d0 * real(st%nx - 1, double)
-            cyg = 0.5d0 * real(st%ny - 1, double)
-            Rmax = sqrt( cxg*cxg + cyg*cyg )
-            if (Rmax <= 0.0d0) Rmax = 1.0d0  ! защита на случай 1×1
-
-            do iy = 0, st%ny-1
-              do ix = 0, st%nx-1
-                k = iy*st%nx + ix + 1
-                clk => st%clocks(k)
-                clk%cx = baseX + step*real(ix, double)
-                clk%cy = baseY + step*real(iy, double)
-                clk%rx = rad
-                clk%ry = rad
-                clk%theta  = 0.0d0
-                clk%theta2 = 0.0d0
-                 ! t=0 в центре (красный), t=1 на краю (фиолетовый)
-                t = max(0.0d0, min(1.0d0, dist))
-                H = 270.0d0 * t           ! 0°=red → 270°=violet
-                call hsv_to_rgb_u8(H, 1.0d0, 1.0d0, r8, g8, b8)
-
-                ! --- нормированная дистанция 0..1 от центра
-                dxg  = real(ix, double) - cxg
-                dyg  = real(iy, double) - cyg
-                dist = sqrt(dxg*dxg + dyg*dyg) / Rmax        ! 0 в центре, 1 на углах
-
-                ! --- профиль: mix = 1 - dist^p  (1 в центре → 0 у края)
-                mix = 1.0d0 - dist**falloffP
-                
-                ! --- итоговый множитель между f_edge и f_center
-                !     (в центре ≈ f_center, у краёв ≈ f_edge)
-               !mix = f_edge + (f_center - f_edge) * mix
-                mix = f_edge + (f_center - f_edge) * exp( - (dist/sigma)**1 )
-                mix2 = real(NINT(mix * 1000.0d0)) / 1000.0d0
-                st%omega_fast(k) = w_base * mix2 *5.0d0 
-                st%omega_slow(k) = (w_base/60.0d0) * mix2*5.0d0 
-               
-               
-                st%color_ref(k)%A = 0
-                st%color_ref(k)%R = r8
-                st%color_ref(k)%G = g8
-                st%color_ref(k)%B = b8
-                t = max(0.0d0, min(1.0d0, dist))
-                H = 270.0d0 * t
-                st%hue(k) = H
-              end do
-            end do
-
-
-            st%hbg_brush = CreateSolidBrush(MakeARGB(0, 0, 0, 0))  ! background brush
-            !
-            !st%w = 6; st%h = 6
-            !st%theta  = 0.0d0
-            !st%theta2 = 0.0d0
-            !st%omega  = 2.0d0 * PI / 4.0d0
-            !
-            !! fixed tiny clock in the top-left corner:
-            !st%cx = 10.0d0          ! center X (pixels)
-            !st%cy = 10.0d0          ! center Y
-            !st%rx = 5.0d0          ! radius X 
-            !st%ry = 5.0d0          ! radius Y
-
-            p = c_loc(st)
-            call SetWindowLongPtrW(hwnd, GWLP_USERDATA, transfer(p, 0_i_ptr))
-          end block
-
-          retval = 0
-
-      case (WM_DESTROY)
-          resultbool = KillTimer(hwnd, TIMER_ID)
-
-          p = transfer(GetWindowLongPtrW(hwnd, GWLP_USERDATA), nullptr)
-          if (c_associated(p)) then
-            call c_f_pointer(p, st)
-            call CleanupAppState(st)                 ! <-- безопасно чистим всё
-            if (associated(st)) deallocate(st)       ! <-- и только теперь убираем контейнер
-            call SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0_i_ptr)
+            ! Снимаем и удаляем старый битмап; новый создадим в WM_PAINT
+            if (c_associated(st%hBmp)) then
+              if (c_associated(st%hBmpOld)) tmpSel = SelectObject(st%hMemDC, st%hBmpOld)
+              ignore = DeleteObject(st%hBmp)
+              st%hBmp    = nullptr
+              st%hBmpOld = nullptr
+            end if
           end if
+        end if
+        retval = 0
+        
+      case (WM_ERASEBKGND)
+          retval = 1
 
-          retval = 0
+      case (WM_PAINT)
+        gdiCnt = GetGuiResources(GetCurrentProcess(), 0)  ! GDI
+        usrCnt = GetGuiResources(GetCurrentProcess(), 1)  ! USER
+        hdc = BeginPaint(hwnd, c_loc(ps))
 
-          
-      case (WM_TIMER)
-          if (wParam == int(TIMER_ID, i_ptr)) then
+        if (c_associated(hdc)) then
+            ok  = GetClientRect(hwnd, c_loc(rc))
+
+               if (.not. c_associated(hdc)) then
+              
+                  le = GetLastError()
+                  r9 = 0;
+                  ! выведи в лог/консоль le
+                  ! 5=ACCESS_DENIED, 6=INVALID_HANDLE, 8=NOT_ENOUGH_MEMORY, 1400=INVALID_WINDOW_HANDLE и т.д.
+               end if
+
+            gdiCnt = GetGuiResources(GetCurrentProcess(), 0)  ! GDI
             p = transfer(GetWindowLongPtrW(hwnd, GWLP_USERDATA), nullptr)
             if (c_associated(p)) then
               call c_f_pointer(p, st)
               if (associated(st)) then
-                dt = 0.016d0
-                N  = size(st%clocks)
+                ! ЛЕНИВАЯ (re)инициализация backbuffer’а от экранного HDC
+                if (.not. c_associated(st%hBmp)) then
+                  ! На всякий случай вернём старый выбранный объект
+                  if (c_associated(st%hBmpOld)) tmpSel = SelectObject(st%hMemDC, st%hBmpOld)
+                  st%hBmp    = CreateCompatibleBitmap(hdc, st%backW, st%backH)
+                  st%hBmpOld = SelectObject(st%hMemDC, st%hBmp)
+                end if
 
+                ! 1) фон
+                if (c_associated(st%hbg_brush)) ok = FillRect(st%hMemDC, c_loc(rc), st%hbg_brush)
+
+                ! 2) отрисовка
+                N = size(st%clocks)
                 do k = 1, N
                   clk => st%clocks(k)
-                  clk%theta  = clk%theta  + st%omega_fast(k)*dt
-                  if (clk%theta  >= 2*PI) &
-                      clk%theta  = clk%theta  - 2*PI
+                  cx = int(nint(clk%cx), int32)
+                  cy = int(nint(clk%cy), int32)
 
-                  clk%theta2 = clk%theta2 + st%omega_slow(k)*dt
-                  if (clk%theta2 >= 2*PI) &
-                      clk%theta2 = clk%theta2 - 2*PI
+                  x1 = cx + int( nint( clk%rx * cos(clk%theta) ), int32 )
+                  y1 = cy + int( nint( clk%ry * sin(clk%theta) ), int32 )
+
+                  r2 = int( 0.60d0 * nint(min(clk%rx, clk%ry)), int32 )
+                  x2 = cx + int( nint( real(r2,double) * cos(clk%theta2) ), int32 )
+                  y2 = cy + int( nint( real(r2,double) * sin(clk%theta2) ), int32 )
+                  call hsv_to_rgb_u8( modulo(st%hue(k) + 90.0d0, 360.0d0), 1.0d0, 1.0d0, r9, g9, b9 )
+                  clB11 = clamp255(b9 - (1 - sin(clk%theta))*10)
+                  clG11 = clamp255(g9 - (1 - sin(clk%theta))*10)
+                  clR11 = clamp255(r9 - (1 - sin(clk%theta))*10)
+                  call DrawHand(st%hMemDC, cx, cy, x2, y2, MakeARGB(0, clB11, clG11, clR11), 1)
+                  clB11 = clamp255(st%color_ref(k)%B - (1 - cos(clk%theta))*10)
+                  clG11 = clamp255(st%color_ref(k)%G - (1 - cos(clk%theta))*10)
+                  clR11 = clamp255(st%color_ref(k)%R - (1 - cos(clk%theta))*10)
+                  call DrawHand(st%hMemDC, cx, cy, x1, y1, MakeARGB(st%color_ref(k)%A, clB11, clG11, clR11), 1)
                 end do
 
-                ok = InvalidateRect(hwnd, nullptr, 0_int32)
+                ! 3) вывод на экран
+                ok = BitBlt(hdc, 0, 0, st%backW, st%backH, st%hMemDC, 0, 0, SRCCOPY)
               end if
             end if
-          end if
-          retval = 0
+           
+            ok = EndPaint(hwnd, c_loc(ps))
+            err = GetLastError()
+            print *, "EndPaint=0, GetLastError=", err  ! 1400/6/8 и пр.
 
-
-
-        case (WM_SIZE)
-          p = transfer(GetWindowLongPtrW(hwnd, GWLP_USERDATA), nullptr)
-          if (c_associated(p)) then
-            call c_f_pointer(p, st)
-            if (associated(st)) then
-              ok = GetClientRect(hwnd, c_loc(rc))
-              st%backW = rc%right - rc%left
-              st%backH = rc%bottom - rc%top
-              ! reallocate bitmap
-              if (c_associated(st%hBmp)) then                
-                tmpSel = SelectObject(st%hMemDC, st%hBmpOld)
-                ignore = DeleteObject(st%hBmp)
-              end if
-              st%hBmp   = CreateCompatibleBitmap(BeginPaint(hwnd, c_loc(ps)), st%backW, st%backH)
-              ignore     = EndPaint(hwnd, c_loc(ps))
-              st%hBmpOld = SelectObject(st%hMemDC, st%hBmp)
-            end if
-          end if
-          retval = 0
-
-
-
-      case (WM_PAINT)
-          hdc = BeginPaint(hwnd, c_loc(ps))
-          ok  = GetClientRect(hwnd, c_loc(rc))
-
-          p = transfer(GetWindowLongPtrW(hwnd, GWLP_USERDATA), nullptr)
-          if (c_associated(p)) then
-            call c_f_pointer(p, st)
-            if (associated(st)) then
-              ! 1) clear backbuffer (fill background)
-              if (c_associated(st%hbg_brush)) ok = FillRect(st%hMemDC, c_loc(rc), st%hbg_brush)
-
-              ! 2) draw all clocks into backbuffer with simple GDI lines
-              N = size(st%clocks)
-              do k = 1, N
-                clk => st%clocks(k)
-                cx = int(nint(clk%cx), int32)
-                cy = int(nint(clk%cy), int32)
-
-                ! fast hand endpoint (ellipse)
-                x1 = cx + int( nint( clk%rx * cos(clk%theta) ), int32 )
-                y1 = cy + int( nint( clk%ry * sin(clk%theta) ), int32 )
-
-                !print *, "theta  ", clk%theta
-                !print *, "theta2 ", clk%theta2
-                ! slow hand endpoint (60% of radius, circle)
-                r2 = int( 0.60d0 * nint(min(clk%rx, clk%ry)), int32 )
-                x2 = cx + int( nint( real(r2,double) * cos(clk%theta2) ), int32 )
-                y2 = cy + int( nint( real(r2,double) * sin(clk%theta2) ), int32 )
-                
-                call hsv_to_rgb_u8( modulo(st%hue(k) + 90.0d0, 360.0d0), 1.0d0, 1.0d0, r9, g9, b9 )
-                clB11 = clamp255(b9- (1-sin(clk%theta))*10)
-                clG11 = clamp255(g9- (1-sin(clk%theta))*10)
-                clR11 = clamp255(r9- (1- sin(clk%theta))*10)
-                call DrawHand(st%hMemDC, cx, cy, x2, y2, MakeARGB(0, clB11, clG11, clR11), 1)                  
-                clB11 = clamp255(st%color_ref(k)%B- (1-cos(clk%theta))*10)
-                clG11 = clamp255(st%color_ref(k)%G- (1-cos(clk%theta))*10)
-                clR11 = clamp255(st%color_ref(k)%R- (1- cos(clk%theta))*10)
-                !print *, "clB11  ", clB11
-                !print *, "clG11  ", clG11
-                !print *, "clR11  ", clR11
-                call DrawHand(st%hMemDC, cx, cy, x1, y1, MakeARGB(st%color_ref(k)%A, clB11, clG11, clR11), 1)  ! fast over
-              end do
-
-              ! 3) blit backbuffer -> screen
-              ok = BitBlt(hdc, 0, 0, st%backW, st%backH, st%hMemDC, 0, 0, SRCCOPY)
-            end if
-          end if
-
-          ok  = EndPaint(hwnd, c_loc(ps))
-          retval = 0
-
+        else
+        ! BeginPaint вернул NULL — EndPaint НЕ вызываем
+        end if
+     
+        gdiCnt = GetGuiResources(GetCurrentProcess(), 0)  ! GDI
+        usrCnt = GetGuiResources(GetCurrentProcess(), 1)  ! USER
+        print*,gdiCnt
+        retval = 0
 
       case default
         retval = DefWindowProcW(hwnd, uMsg, wParam, lParam)
-      end select      
-      
-        contains
-            subroutine DrawHand(hdc, cx, cy, x, y, colorBGR, width)
-              ! Draw a line (clock hand) with a solid pen
-              use standard
-              type(ptr), value :: hdc
-              integer(int32), value :: cx, cy, x, y, colorBGR, width
-              type(ptr)    :: hPen, hOld, tmp
-              integer(int32) :: ok
+      end select
 
-              ! create pen and select
-              hPen = CreatePen(PS_SOLID, width, colorBGR)
-              hOld = SelectObject(hdc, hPen)          ! <- returns previous HGDIOBJ (ptr)
+   contains
+    subroutine DrawHand(hdc, cx, cy, x, y, colorBGR, width)
+        use standard
+        type(ptr), value :: hdc
+        integer(int32), value :: cx, cy, x, y, colorBGR, width
+        type(ptr) :: hOld, tmp
+        integer(int32) :: ok
 
-              ok  = MoveToEx(hdc, cx, cy, nullptr)
-              ok  = LineTo(hdc, x, y)
+        ! выбрать стоковое перо и запомнить предыдущее
+        hOld = SelectObject(hdc, GetStockObject(DC_PEN))
+        call SetDCPenColor(hdc, colorBGR)     ! это именно subroutine
 
-              ! restore previous object; swallow return into tmp (also ptr)
-              tmp = SelectObject(hdc, hOld)
+        ok  = MoveToEx(hdc, cx, cy, nullptr)
+        ok  = LineTo(hdc, x, y)
 
-              ok  = DeleteObject(hPen)                ! BOOL -> int32
-            end subroutine DrawHand
+        ! восстановить прежний объект
+        tmp = SelectObject(hdc, hOld)
+    end subroutine
 
+      subroutine CleanupAppState(st)
+        type(AppState), pointer :: st
+        type(ptr) :: tmp
+        integer(int32) :: ignore
+        if (.not. associated(st)) return
+        if (c_associated(st%hMemDC)) then
+          if (c_associated(st%hBmp)) then
+            if (c_associated(st%hBmpOld)) tmp = SelectObject(st%hMemDC, st%hBmpOld)
+            ignore = DeleteObject(st%hBmp)
+            st%hBmp = c_null_ptr
+          end if
+          ignore = DeleteDC(st%hMemDC)
+          st%hMemDC  = c_null_ptr
+          st%hBmpOld = c_null_ptr
+        end if
+        if (c_associated(st%hbg_brush)) then
+          ignore = DeleteObject(st%hbg_brush)
+          st%hbg_brush = c_null_ptr
+        end if
+        if (associated(st%clocks))      deallocate(st%clocks)
+        if (associated(st%omega_fast))  deallocate(st%omega_fast)
+        if (associated(st%omega_slow))  deallocate(st%omega_slow)
+        if (associated(st%color_ref))   deallocate(st%color_ref)
+        if (associated(st%hue))         deallocate(st%hue)
+      end subroutine CleanupAppState
 
+      pure integer(int32) function clamp255(x) result(i)
+        use iso_c_binding, only: c_double
+        real(c_double), value :: x
+        real(c_double) :: y
+        y = max(0.0d0, min(255.0d0, x))
+        i = int(nint(y), int32)
+      end function
 
-          subroutine CleanupAppState(st)
-            !use iso_c_binding, only: c_associated
-            type(AppState), pointer :: st
-            type(ptr) :: tmp
-            integer(int32) :: ignore
-
-            if (.not. associated(st)) return
-
-            ! 1) двойной буфер
-            if (c_associated(st%hMemDC)) then
-              if (c_associated(st%hBmp)) then
-                if (c_associated(st%hBmpOld)) then
-                  tmp = SelectObject(st%hMemDC, st%hBmpOld)  ! вернуть старый объект
-                end if
-                ignore = DeleteObject(st%hBmp)
-                st%hBmp = c_null_ptr
-              end if
-              ignore = DeleteDC(st%hMemDC)
-              st%hMemDC = c_null_ptr
-              st%hBmpOld = c_null_ptr
-            end if
-
-            ! 2) кисть фона
-            if (c_associated(st%hbg_brush)) then
-              ignore = DeleteObject(st%hbg_brush)
-              st%hbg_brush = c_null_ptr
-            end if
-
-            ! 3) динамические массивы
-            if (associated(st%clocks))      deallocate(st%clocks)
-            if (associated(st%omega_fast))  deallocate(st%omega_fast)
-            if (associated(st%omega_slow))  deallocate(st%omega_slow)
-
-          end subroutine CleanupAppState
-      ! -> 0..255 int
-            pure integer(int32) function clamp255(x) result(i)
-              use iso_c_binding, only: c_double
-              real(c_double), value :: x
-              real(c_double) :: y
-              y = max(0.0d0, min(255.0d0, x))
-              i = int(nint(y), int32)
-            end function
-
-            ! HSV (H в градусах, S,V 0..1) -> 8-битные R,G,B
-            subroutine hsv_to_rgb_u8(H, S, V, r8, g8, b8)
-              real(double), value :: H, S, V
-              integer(int32) :: r8, g8, b8
-              real(double) :: C, X, m, Hp, rp, gp, bp
-              C  = V * S
-              Hp = H / 60.0d0
-              X  = C * (1.0d0 - abs(mod(Hp, 2.0d0) - 1.0d0))
-              select case (int(floor(Hp)))
-              case (0); rp=C; gp=X; bp=0.0d0
-              case (1); rp=X; gp=C; bp=0.0d0
-              case (2); rp=0.0d0; gp=C; bp=X
-              case (3); rp=0.0d0; gp=X; bp=C
-              case (4); rp=X; gp=0.0d0; bp=C
-              case default; rp=C; gp=0.0d0; bp=X
-              end select
-              m  = V - C
-              r8 = clamp255( (rp+m)*255.0d0 )
-              g8 = clamp255( (gp+m)*255.0d0 )
-              b8 = clamp255( (bp+m)*255.0d0 )
-            end subroutine
+      subroutine hsv_to_rgb_u8(H, S, V, r8, g8, b8)
+        real(double), value :: H, S, V
+        integer(int32) :: r8, g8, b8
+        real(double) :: C, X, m, Hp, rp, gp, bp
+        C  = V * S
+        Hp = H / 60.0d0
+        X  = C * (1.0d0 - abs(mod(Hp, 2.0d0) - 1.0d0))
+        select case (int(floor(Hp)))
+        case (0); rp=C; gp=X; bp=0.0d0
+        case (1); rp=X; gp=C; bp=0.0d0
+        case (2); rp=0.0d0; gp=C; bp=X
+        case (3); rp=0.0d0; gp=X; bp=C
+        case (4); rp=X; gp=0.0d0; bp=C
+        case default; rp=C; gp=0.0d0; bp=X
+        end select
+        m  = V - C
+        r8 = clamp255( (rp+m)*255.0d0 )
+        g8 = clamp255( (gp+m)*255.0d0 )
+        b8 = clamp255( (bp+m)*255.0d0 )
+      end subroutine
 
     end function GraphWndProc
+
 
 
 end module win_api

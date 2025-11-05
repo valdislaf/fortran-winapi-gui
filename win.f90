@@ -14,10 +14,13 @@ program WinMain
   type(ptr)                 :: hPanelBrush! Background brush for panel
   type(ptr)                 :: hButton    ! Button (temporarily reused)
 
+
+
+
   ! --- User data for the window ---
   type(AppData), target :: appDataInst
-  type(c_ptr)           :: appDataPtr
-  type(c_ptr)           :: msgPtr
+  type(ptr)           :: appDataPtr
+  type(ptr)           :: msgPtr
   
   ! --- Variables for the graphics widget ---
   type(ptr) :: hGraphBrush  ! variable for passing nullptr
