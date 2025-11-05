@@ -86,16 +86,18 @@ module win_types
   !  character(1)         :: rgbReserved(32)
   !end type PAINTSTRUCT
 type, bind(C) :: RECT
-  integer(int32) :: left, top, right, bottom
+  integer(long) :: left
+  integer(long) :: top
+  integer(long) :: right
+  integer(long) :: bottom
 end type
-
 type, bind(C) :: PAINTSTRUCT
-  type(ptr)        :: hdc             ! HDC
-  integer(int32) :: fErase          ! BOOL
-  type(RECT)         :: rcPaint
-  integer(int32) :: fRestore        ! BOOL
-  integer(int32) :: fIncUpdate      ! BOOL
-  integer(int8)  :: rgbReserved(32) ! BYTE[32]
+  type(ptr)         :: hdc              ! HDC (ptr) — смещение 0
+  integer(int32)  :: fErase           ! BOOL (4 байта)
+  type(RECT)          :: rcPaint          ! 16 байт
+  integer(int32)  :: fRestore         ! BOOL
+  integer(int32)  :: fIncUpdate       ! BOOL
+  integer(int8)   :: rgbReserved(32)  ! 32 байта
 end type
 
 type :: ColorRef

@@ -153,10 +153,10 @@ module win_api
     !  end function
 
     function BeginPaint(hWnd, lpPaint) bind(C, name="BeginPaint")
-        use standard
-        type(ptr), value :: hWnd        ! HWND
-        type(ptr)        :: lpPaint     ! LPPAINTSTRUCT (by reference!)
-        type(ptr)        :: BeginPaint  ! HDC
+      use standard
+      type(ptr), value :: hWnd        ! HWND
+      type(ptr), value :: lpPaint     ! LPPAINTSTRUCT — указатель передаём по VALUE
+      type(ptr)        :: BeginPaint  ! HDC
     end function
 
     function EndPaint(hWnd, lpPaint) bind(C, name="EndPaint")
@@ -299,6 +299,39 @@ module win_api
       use standard
       type(ptr) :: GetCurrentProcess
     end function
+    ! --- проверки и вспомогательные
+    function IsWindow(hWnd) bind(C, name="IsWindow")
+      use iso_c_binding, only: c_ptr, c_int32_t
+      type(c_ptr), value :: hWnd
+      integer(c_int32_t) :: IsWindow     ! BOOL
+    end function
+
+    function WindowFromDC(hdc) bind(C, name="WindowFromDC")
+      use iso_c_binding, only: c_ptr
+      type(c_ptr), value :: hdc
+      type(c_ptr) :: WindowFromDC        ! HWND
+    end function
+
+    function GetParent(hWnd) bind(C, name="GetParent")
+      use iso_c_binding, only: c_ptr
+      type(c_ptr), value :: hWnd
+      type(c_ptr) :: GetParent           ! HWND
+    end function
+
+    function GetAncestor(hWnd, gaFlags) bind(C, name="GetAncestor")
+      use iso_c_binding, only: c_ptr, c_int32_t
+      type(c_ptr), value :: hWnd
+      integer(c_int32_t), value :: gaFlags
+      type(c_ptr) :: GetAncestor         ! HWND
+    end function
+
+    function GetClassNameW(hWnd, lpClassName, nMaxCount) bind(C, name="GetClassNameW")
+      use iso_c_binding, only: c_ptr, c_int32_t
+      type(c_ptr), value :: hWnd
+      type(c_ptr), value :: lpClassName   ! LPWSTR buffer
+      integer(c_int32_t), value :: nMaxCount
+      integer(c_int32_t) :: GetClassNameW ! length
+    end function
 
   end interface
   
@@ -404,7 +437,8 @@ contains
       integer(int32), parameter :: GR_GDIOBJECTS = 0, GR_USEROBJECTS = 1
       integer(int32) :: le
       integer(int32) :: gdiCnt, usrCnt     
-     
+      integer(int32), parameter :: GA_PARENT = 1, GA_ROOT = 2, GA_ROOTOWNER = 3
+
       !print *, "sizeof RECT=", c_sizeof(rc)            ! ожидается 16
       !print *, "sizeof PAINTSTRUCT=", c_sizeof(ps)      ! ожидается 72 (x64)
      
@@ -607,10 +641,11 @@ contains
                 ok = BitBlt(hdc, 0, 0, st%backW, st%backH, st%hMemDC, 0, 0, SRCCOPY)
               end if
             end if
-           
+            !call dump_hdc_coherence(hwnd, hdc, ps%hdc)
             ok = EndPaint(hwnd, c_loc(ps))
-            err = GetLastError()
-            print *, "EndPaint=0, GetLastError=", err  ! 1400/6/8 и пр.
+           ! err = GetLastError()
+            
+            !print *, "                        EndPaint=0, GetLastError=", err  ! 1400/6/8 и пр.
 
         else
         ! BeginPaint вернул NULL — EndPaint НЕ вызываем
@@ -618,7 +653,7 @@ contains
      
         gdiCnt = GetGuiResources(GetCurrentProcess(), 0)  ! GDI
         usrCnt = GetGuiResources(GetCurrentProcess(), 1)  ! USER
-        print*,gdiCnt
+       ! print*,gdiCnt
         retval = 0
 
       case default
@@ -698,6 +733,48 @@ contains
         g8 = clamp255( (gp+m)*255.0d0 )
         b8 = clamp255( (bp+m)*255.0d0 )
       end subroutine
+        subroutine dump_hwnd(label, h)
+          use iso_c_binding, only: c_ptr, c_intptr_t
+          character(*), intent(in) :: label
+          type(c_ptr),  intent(in) :: h
+          integer(c_intptr_t) :: v
+          v = transfer(h, 0_c_intptr_t)
+          write(*, '(A, Z16.16)') trim(label)//' hwnd=0x', v
+        end subroutine
+
+        subroutine dump_hwnd_chain(label, h)
+          use iso_c_binding, only: c_ptr, c_intptr_t
+          character(*), intent(in) :: label
+          type(c_ptr),  intent(in) :: h
+          integer(c_intptr_t) :: v, vp, vr
+          type(c_ptr) :: p, r
+          v  = transfer(h,  0_c_intptr_t)
+          p  = GetParent(h);   vp = transfer(p, 0_c_intptr_t)
+          r  = GetAncestor(h, 2); vr = transfer(r, 0_c_intptr_t)  ! GA_ROOT=2
+          write(*, '(A, Z16.16)') trim(label)//' hwnd=0x', v
+          write(*, '(A, Z16.16)') '  parent=0x', vp
+          write(*, '(A, Z16.16)') '  root=0x',   vr
+        end subroutine
+
+        subroutine dump_hdc_coherence(hwnd, hdc, ps_hdc)
+          use iso_c_binding, only: c_ptr, c_intptr_t, c_int32_t
+          type(c_ptr), intent(in) :: hwnd, hdc, ps_hdc
+          type(c_ptr) :: wnd_from_dc
+          integer(c_intptr_t) :: v_hwnd, v_hdc, v_ps, v_wnd
+          integer(c_int32_t) :: ok
+          v_hwnd = transfer(hwnd,   0_c_intptr_t)
+          v_hdc  = transfer(hdc,    0_c_intptr_t)
+          v_ps   = transfer(ps_hdc, 0_c_intptr_t)
+          ok = IsWindow(hwnd)
+          write(*,'(A,Z16.16, A, I0)') 'coh: hwnd=0x', v_hwnd, ' IsWindow=', ok
+          write(*,'(A,Z16.16)') '     hdc=0x',  v_hdc
+          write(*,'(A,Z16.16)') '  ps->hdc=0x', v_ps
+          wnd_from_dc = WindowFromDC(hdc)
+          v_wnd = transfer(wnd_from_dc, 0_c_intptr_t)
+          write(*,'(A,Z16.16)') 'WindowFromDC=0x', v_wnd
+          if (v_ps /= v_hdc) write(*,*) '  !! ps.hdc != hdc'
+          if (v_wnd /= v_hwnd) write(*,*) '  !! WindowFromDC(hdc) != hwnd'
+        end subroutine
 
     end function GraphWndProc
 
