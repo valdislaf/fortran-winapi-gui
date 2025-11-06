@@ -557,7 +557,7 @@ contains
 
           ok  = EndPaint(hwnd, c_loc(ps))
           gdiCnt = GetGuiResources(GetCurrentProcess(), 0)  ! GDI
-          print *,gdiCnt
+          !print *,gdiCnt
           retval = 0
 
 
