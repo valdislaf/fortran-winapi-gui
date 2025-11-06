@@ -146,5 +146,10 @@ type :: AppState
   integer(int32) :: backH   = 0
   type(ColorRef), pointer   :: color_ref(:) => null()
   real(double), pointer :: hue(:) => null()   ! размер N
+  logical(bool) :: locked         ! уже «зафиксировано» на 11-й секунде?
+  real(double)    :: t0, t_freeze   ! старт и момент «снимка»
+  real(double)    :: w_lock         ! общая угловая скорость после «снимка»
+  real(double), allocatable :: phi_lock(:)   ! фаза theta на момент «снимка»
+  real(double), allocatable :: phi2_lock(:)  ! фаза theta2 на момент «снимка»
 end type AppState
 end module win_types

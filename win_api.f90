@@ -223,6 +223,11 @@ module win_api
       integer(int32), value :: x, y, cx, cy, x1, y1, rop
       integer(int32) :: BitBlt
     end function
+  function GetTickCount64() bind(C, name="GetTickCount64")
+    use iso_c_binding
+    integer(c_long_long) :: GetTickCount64  ! миллисекунды с момента загрузки ОС
+  end function
+
 
     function MoveToEx(hdc, x, y, lpPoint) bind(C, name="MoveToEx")
       use standard
@@ -407,7 +412,9 @@ contains
       integer(int32) :: le
       integer(int32) :: gdiCnt, usrCnt     
       integer(int32), parameter :: GA_PARENT = 1, GA_ROOT = 2, GA_ROOTOWNER = 3
-
+      real(double) :: t_now, t_rel! , dt
+      ! integer :: k, N
+      real(double) :: tau          
       !print *, "sizeof RECT=", c_sizeof(rc)            ! ожидается 16
       !print *, "sizeof PAINTSTRUCT=", c_sizeof(ps)      ! ожидается 72 (x64)
      
@@ -436,9 +443,9 @@ contains
           st_local%nx = 100; st_local%ny = 100
           N = st_local%nx * st_local%ny
 
-          baseX = 8.0d0
-          baseY = 8.0d0
-          step  = 7.0d0
+          baseX = 80.0d0
+          baseY = 80.0d0
+          step  = 10.0d0
           rad   = 4.0d0
           w_base = 2.0d0 * PI / 4.0d0
 
@@ -451,6 +458,12 @@ contains
           cxg = 0.5d0 * real(st_local%nx - 1, double)
           cyg = 0.5d0 * real(st_local%ny - 1, double)
           Rmax = sqrt(cxg*cxg + cyg*cyg); if (Rmax <= 0.0d0) Rmax = 1.0d0
+            st_local%locked   = .false._c_bool
+            st_local%t0       = real(GetTickCount64(), double)*1.0d-3
+            st_local%t_freeze = 0.0d0
+            st_local%w_lock   = w_base              ! выберите константу (напр., ваш w_base)
+            allocate(st_local%phi_lock(N))
+            allocate(st_local%phi2_lock(N))
 
           do iy = 0, st_local%ny-1
             do ix = 0, st_local%nx-1
@@ -504,26 +517,60 @@ contains
         retval = 0
 
       case (WM_TIMER)
-       
         if (wParam == int(TIMER_ID, i_ptr)) then
-          p = transfer(GetWindowLongPtrW(hwnd, GWLP_USERDATA), nullptr)
-          if (c_associated(p)) then
-            call c_f_pointer(p, st)
-            if (associated(st)) then
-              dt = 0.016d0
-              N  = size(st%clocks)
-              do k = 1, N
-                clk => st%clocks(k)
-                clk%theta  = clk%theta  + st%omega_fast(k)*dt
-                if (clk%theta  >= 2*PI) clk%theta  = clk%theta  - 2*PI
-                clk%theta2 = clk%theta2 + st%omega_slow(k)*dt
-                if (clk%theta2 >= 2*PI) clk%theta2 = clk%theta2 - 2*PI
-              end do
-              ok = InvalidateRect(hwnd, nullptr, 0_int32)
-              
+              p = transfer(GetWindowLongPtrW(hwnd, GWLP_USERDATA), nullptr)
+              if (c_associated(p)) then
+                call c_f_pointer(p, st)
+                if (associated(st)) then
+
+                  N = size(st%clocks)
+
+                  t_now = real(GetTickCount64(), double)*1.0d-3
+                  t_rel = t_now - st%t0
+
+                  if (.not. st%locked) then
+                    ! Обычная эволюция ДО 11-й секунды
+                    dt = 0.016d0
+                    do k=1,N
+                      clk => st%clocks(k)
+                      clk%theta  = modulo(clk%theta  + st%omega_fast(k)*dt, 2*PI)
+                      clk%theta2 = modulo(clk%theta2 + st%omega_slow(k)*dt, 2*PI)
+                    end do
+
+                    if (t_rel >= 11.0d0) then
+                      ! СДЕЛАТЬ СЛЕПОК ФАЗ и заморозить смещения
+                      st%t_freeze = t_now
+                      do k=1,N
+                        clk => st%clocks(k)
+                        st%phi_lock(k)  = clk%theta
+                        st%phi2_lock(k) = clk%theta2
+                      end do
+                      ! После «снимка» выключаем источник эволюции смещения фаз:
+                      ! - медленную частоту обнуляем
+                      ! - быстрые делаем одинаковыми через w_lock (используем формулу ниже)
+                      st%locked = .true._c_bool
+                    end if
+
+                  else
+                    ! ПОСЛЕ «СНИМКА»: фиксированная форма волны, равномерный бег
+                    
+                    tau = (t_now - st%t_freeze)*PI *2.0d0
+                    do k=1,N
+                      clk => st%clocks(k)
+                      ! фаза = (зафиксированная) + общая угловая скорость * время с «снимка»
+                      clk%theta  = modulo(st%phi_lock(k)  + st%w_lock*tau, 2*PI)
+                       
+                      clk%theta2 = modulo(st%phi_lock(k)  + st%w_lock*tau, 0.8*PI)
+                      ! медленный канал не эволюционирует
+                      !clk%theta2 = st%phi2_lock(k)
+                    end do
+                  end if
+
+                  ignore = InvalidateRect(hwnd, nullptr, 0_int32)
+                end if
+              end if
             end if
-          end if
-        end if
+
         
         retval = 0
 
@@ -600,7 +647,7 @@ contains
                   clG11 = clamp255(g9 - (1 - sin(clk%theta))*10)
                   clR11 = clamp255(r9 - (1 - sin(clk%theta))*10)
                   !call DrawHand(st%hMemDC, cx, cy, x2, y2, MakeARGB(0, clB11, clG11, clR11), 1)
-                  !call DrawOrbiterDot(st%hMemDC, cx, cy, x2, y2, MakeARGB(st%color_ref(k)%A, clB11, clG11, clR11), 1)
+                  call DrawOrbiterDot(st%hMemDC, cx, cy, x2, y2, MakeARGB(st%color_ref(k)%A, clB11, clG11, clR11), 1)
                   clB11 = clamp255(st%color_ref(k)%B - (1 - cos(clk%theta))*10)
                   clG11 = clamp255(st%color_ref(k)%G - (1 - cos(clk%theta))*10)
                   clR11 = clamp255(st%color_ref(k)%R - (1 - cos(clk%theta))*10)
