@@ -86,7 +86,6 @@ module win_api
       integer(int32), value :: X, Y, nW, nH
       integer(int32), value :: bRepaint
     end subroutine
-
     
     function GetWindowLongPtrW(hWnd, nIndex) bind(C, name="GetWindowLongPtrW")
       use standard
@@ -102,13 +101,6 @@ module win_api
       integer(i_ptr), value :: dwNewLong
     end subroutine
     
-    !function GetWindowRect(hWnd, lpRect) bind(C, name="GetWindowRect")
-    !  use standard
-    !  type(ptr), value :: hWnd
-    !  type(ptr) :: lpRect
-    !  logical(bool) :: GetWindowRect
-    !end function
-    
     function GetWindowRect(hWnd, lpRect) bind(C, name="GetWindowRect")
       use standard
       type(ptr), value :: hWnd
@@ -116,13 +108,6 @@ module win_api
       integer(int32) :: GetWindowRect  ! BOOL
     end function
 
-    !function GetClientRect(hWnd, lpRect) bind(C, name="GetClientRect")
-    !  use iso_c_binding, only: c_ptr, c_int32_t
-    !  type(c_ptr), value :: hWnd     ! HWND
-    !  type(c_ptr), value :: lpRect   ! LPRECT
-    !  integer(c_int32_t) :: GetClientRect
-    !end function
-    
     function InvalidateRect(hWnd, lpRect, bErase) bind(C, name="InvalidateRect")
       use standard
       type(ptr), value :: hWnd        ! HWND
@@ -136,22 +121,8 @@ module win_api
       type(ptr), value :: hInstance
       type(ptr), value :: lpCursorName
       type(ptr) :: LoadCursorW
-    end function    
-    !
-    !function BeginPaint(hWnd, lpPaint) bind(C, name="BeginPaint")
-    !  use standard
-    !  type(ptr), value        :: hWnd
-    !  type(ptr)               :: lpPaint
-    !  type(ptr)               :: BeginPaint  ! возвращает HDC
-    !end function 
-    !
-    !  function EndPaint(hWnd, lpPaint) bind(C, name="EndPaint")
-    !    use standard
-    !    type(ptr), value :: hWnd
-    !    type(ptr), value :: lpPaint
-    !    integer(int32)      :: EndPaint    ! возвращает BOOL
-    !  end function
-
+    end function  
+    
     function BeginPaint(hWnd, lpPaint) bind(C, name="BeginPaint")
       use standard
       type(ptr), value :: hWnd        ! HWND
@@ -171,8 +142,7 @@ module win_api
         type(ptr), value :: hWnd        ! HWND
         type(ptr), value :: lpRect      ! LPRECT
         integer(int32) :: GetClientRect ! BOOL            
-    end function
-    
+    end function    
 
       function FillRect(hdc, lprc, hbr) bind(C, name="FillRect")
         use standard
@@ -383,8 +353,7 @@ contains
           call MoveWindow(appDataInst%hwin, panelActualWidth, 0, &
                          width - panelActualWidth , height, 1)
           call MoveWindow(appDataInst%hPanel, 0, 0, &
-                         panelActualWidth , height, 1)
-          
+                         panelActualWidth , height, 1)          
           
           res = 0  ! ← required
 
@@ -776,8 +745,6 @@ contains
           if (v_wnd /= v_hwnd) write(*,*) '  !! WindowFromDC(hdc) != hwnd'
         end subroutine
 
-    end function GraphWndProc
-
-
-
+   end function GraphWndProc
+   
 end module win_api
