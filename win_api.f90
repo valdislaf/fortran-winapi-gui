@@ -135,10 +135,22 @@ module win_api
     function BeginPaint(hWnd, lpPaint) bind(C, name="BeginPaint")
       use standard
       type(ptr), value        :: hWnd
-      type(ptr)               :: lpPaint
+      type(ptr), value        :: lpPaint
       type(ptr)               :: BeginPaint  ! возвращает HDC
     end function 
+    ! Диагностика: сколько GDI/USER-объектов у процесса
+     function GetGuiResources(hProcess, uiFlags) bind(C,name="GetGuiResources")
+       use standard
+       type(ptr), value :: hProcess
+       integer(int32), value :: uiFlags
+       integer(int32) :: GetGuiResources
+     end function
 
+     ! Текущий процесс (для GetGuiResources)
+     function GetCurrentProcess() bind(C,name="GetCurrentProcess")
+       use standard
+       type(ptr) :: GetCurrentProcess
+     end function
       function EndPaint(hWnd, lpPaint) bind(C, name="EndPaint")
         use standard
         type(ptr), value :: hWnd
@@ -273,6 +285,7 @@ contains
       type(ptr) :: hRedBrush
       type(AppState), pointer :: st        ! <-- нужен POINTER
       type(ptr) :: p                       ! <-- c_ptr
+      integer(int32) :: gdiCnt
     
       !integer(c_long) :: style
       !!!!!!!!!!!!!print *, "GraphWndProc called! hwnd=", transfer(hwnd, 0_i_ptr), " uMsg=", uMsg
@@ -404,6 +417,8 @@ contains
           !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!          
           
           resultbool = EndPaint(hwnd, c_loc(ps))
+          gdiCnt = GetGuiResources(GetCurrentProcess(), 0)  ! GDI
+          !print *,gdiCnt
           retval = 0
 
       case default
