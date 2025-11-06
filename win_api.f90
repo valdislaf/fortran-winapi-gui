@@ -135,7 +135,7 @@ module win_api
     function BeginPaint(hWnd, lpPaint) bind(C, name="BeginPaint")
       use standard
       type(ptr), value        :: hWnd
-      type(ptr)               :: lpPaint
+      type(ptr), value        :: lpPaint
       type(ptr)               :: BeginPaint  ! возвращает HDC
     end function 
 
