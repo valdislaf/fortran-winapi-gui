@@ -27,7 +27,7 @@ module win_types
   integer(int32), parameter :: GWLP_USERDATA = -21  ! for SetWindowLongPtrW
   integer(int32), parameter :: PS_SOLID   = 0
   integer(int32), parameter :: SRCCOPY    = int(Z'00CC0020', int32)
-  
+  real(double) :: step = 5.0d0 
   ! Button styles
   integer(int32), parameter :: BS_PUSHBUTTON       = 0
   integer(int32), parameter :: BS_DEFPUSHBUTTON    = 1
@@ -69,7 +69,8 @@ module win_types
     type(ptr) :: hwin 
   end type
 
-   
+
+
   !type, bind(C) :: RECT
   !  integer(long) :: left
   !  integer(long) :: top
@@ -108,11 +109,13 @@ type :: ColorRef
 end type ColorRef
 ! geometry only
 type :: Clock
+  real(double) :: ox, oy      ! базовые координаты (не менять в таймере)
   real(double) :: cx, cy      ! center
   real(double) :: rx, ry      ! radii (circle: rx=ry)
   real(double) :: theta       ! fast angle (radians)
   real(double) :: theta2      ! slow angle (radians)
 end type Clock
+
 
 type :: AppState
   integer(int32) :: x = 10
@@ -121,7 +124,10 @@ type :: AppState
   integer(int32) :: dy = 2
   integer(int32) :: w  = 6
   integer(int32) :: h  = 6
-
+  real(double) :: gx, gy         ! центр сетки (в координатах пикселей)
+  real(double) :: breath_phase = 0.0d0
+  real(double) :: breath_speed = 1.2d0      ! Гц или рад/с, подбери
+  real(double) :: breath_amp   = 0.10d0     ! амплитуда масштаба (±10%)
   ! circular/elliptic motion params (legacy single-dot, можно оставить)
   real(double) :: cx = 0.0d0
   real(double) :: cy = 0.0d0

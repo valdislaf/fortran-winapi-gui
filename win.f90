@@ -13,7 +13,7 @@ program WinMain
   type(ptr)                 :: hBrush     ! Background brush for window
   type(ptr)                 :: hPanelBrush! Background brush for panel
   type(ptr)                 :: hButton    ! Button (temporarily reused)
-
+  
 
 
 

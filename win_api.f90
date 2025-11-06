@@ -382,11 +382,11 @@ contains
       type(ptr)               :: hRedBrush
       type(AppState),  pointer :: st
       type(ptr)               :: p
-
+      
       ! локальные для рисования
       real(double) :: dt
       integer(int32) :: ix, iy, k, N
-      real(double)   :: baseX, baseY, step, rad, w_base
+      real(double)   :: baseX, baseY,  rad, w_base
       integer(int32) :: ok, ignore
       type(ptr)      :: tmpSel
       integer(int32) :: cx, cy, r2
@@ -417,79 +417,90 @@ contains
       select case (uMsg)
 
       case (WM_CREATE)
-        resultbool = SetTimer(hwnd, TIMER_ID, 16_int32, nullptr)  ! ~60 FPS
+          resultbool = SetTimer(hwnd, TIMER_ID, 16_int32, nullptr)
 
-        block
-          type(AppState), pointer :: st_local
-          type(ptr) :: p_local
-          allocate(st_local)
+          block
+            type(AppState), pointer :: st_local
+            type(ptr) :: p_local
+            allocate(st_local)
 
-          ok = GetClientRect(hwnd, c_loc(rc))
-          st_local%backW = rc%right - rc%left
-          st_local%backH = rc%bottom - rc%top
+            ok = GetClientRect(hwnd, c_loc(rc))
+            st_local%backW = rc%right - rc%left
+            st_local%backH = rc%bottom - rc%top
 
-          ! создаём memory-DC; битмап пока не создаём (лениво в WM_PAINT)
-          st_local%hMemDC  = CreateCompatibleDC(nullptr)
-          st_local%hBmp    = c_null_ptr
-          st_local%hBmpOld = c_null_ptr
+            st_local%hMemDC  = CreateCompatibleDC(nullptr)
+            st_local%hBmp    = c_null_ptr
+            st_local%hBmpOld = c_null_ptr
 
-          st_local%nx = 100; st_local%ny = 100
-          N = st_local%nx * st_local%ny
+            st_local%nx = 100; st_local%ny = 100
+            N = st_local%nx * st_local%ny
 
-          baseX = 8.0d0
-          baseY = 8.0d0
-          step  = 5.0d0
-          rad   = 4.0d0
-          w_base = 10.0d0 * PI / 4.0d0
+            baseX = 8.0d0
+            baseY = 8.0d0
+            step  = 5.0d0                 ! ← РАЗНОС между центрами
+            rad   = 4.0d0
+            w_base = 10.0d0 * PI / 4.0d0
 
-          allocate(st_local%clocks(N))
-          allocate(st_local%omega_fast(N))
-          allocate(st_local%omega_slow(N))
-          allocate(st_local%color_ref(N))
-          allocate(st_local%hue(N))
+            allocate(st_local%clocks(N))
+            allocate(st_local%omega_fast(N))
+            allocate(st_local%omega_slow(N))
+            allocate(st_local%color_ref(N))
+            allocate(st_local%hue(N))
 
-          cxg = 0.5d0 * real(st_local%nx - 1, double)
-          cyg = 0.5d0 * real(st_local%ny - 1, double)
-          Rmax = sqrt(cxg*cxg + cyg*cyg); if (Rmax <= 0.0d0) Rmax = 1.0d0
+            cxg = 0.5d0 * real(st_local%nx - 1, double)
+            cyg = 0.5d0 * real(st_local%ny - 1, double)
+            Rmax = sqrt(cxg*cxg + cyg*cyg); if (Rmax <= 0.0d0) Rmax = 1.0d0
 
-          do iy = 0, st_local%ny-1
-            do ix = 0, st_local%nx-1
-              k = iy*st_local%nx + ix + 1
-              clk => st_local%clocks(k)
-              clk%cx = baseX + step*real(ix, double)
-              clk%cy = baseY + step*real(iy, double)
-              clk%rx = rad; clk%ry = rad
-              clk%theta  = 0.0d0
-              clk%theta2 = 0.0d0
+            ! --- ВАЖНО: база ox/oy (НЕ трогаем в таймере), cur cx/cy (пересчёт каждый кадр)
+            do iy = 0, st_local%ny-1
+              do ix = 0, st_local%nx-1
+                k = iy*st_local%nx + ix + 1
+                clk => st_local%clocks(k)
 
-              dxg  = real(ix, double) - cxg
-              dyg  = real(iy, double) - cyg
-              dist = sqrt(dxg*dxg + dyg*dyg) / Rmax
-              t    = max(0.0d0, min(1.0d0, dist))
+                clk%ox = baseX + step*real(ix, double)     ! БАЗА
+                clk%oy = baseY + step*real(iy, double)
+                clk%cx = clk%ox                            ! ТЕКУЩИЕ стартовые
+                clk%cy = clk%oy
+                clk%rx = rad; clk%ry = rad
+                clk%theta  = 0.0d0
+                clk%theta2 = 0.0d0
 
-              H = 270.0d0 * t
-              call hsv_to_rgb_u8(H, 1.0d0, 1.0d0, r8, g8, b8)
+                dxg  = real(ix, double) - cxg
+                dyg  = real(iy, double) - cyg
+                dist = sqrt(dxg*dxg + dyg*dyg) / Rmax
+                t    = max(0.0d0, min(1.0d0, dist))
 
-              mix  = f_edge + (f_center - f_edge) * exp( - (dist/sigma)**1.0d0 )
-              mix2 = real(NINT(mix * 100.0d0)) / 100.0d0
+                H = 270.0d0 * t
+                call hsv_to_rgb_u8(H, 1.0d0, 1.0d0, r8, g8, b8)
 
-              st_local%omega_fast(k) = w_base * mix2 * 5.0d0
-              st_local%omega_slow(k) = (w_base/60.0d0) * mix2 * 5.0d0
+                mix  = f_edge + (f_center - f_edge) * exp( - (dist/sigma)**1.0d0 )
+                mix2 = real(NINT(mix * 100.0d0)) / 100.0d0
 
-              st_local%color_ref(k)%A = 0
-              st_local%color_ref(k)%R = r8
-              st_local%color_ref(k)%G = g8
-              st_local%color_ref(k)%B = b8
-              st_local%hue(k) = H
+                st_local%omega_fast(k) = w_base * mix2 * 5.0d0
+                st_local%omega_slow(k) = (w_base/60.0d0) * mix2 * 5.0d0
+
+                st_local%color_ref(k)%A = 0
+                st_local%color_ref(k)%R = r8
+                st_local%color_ref(k)%G = g8
+                st_local%color_ref(k)%B = b8
+                st_local%hue(k) = H
+              end do
             end do
-          end do
 
-          st_local%hbg_brush = CreateSolidBrush(MakeARGB(0,0,0,0))
+            st_local%hbg_brush = CreateSolidBrush(MakeARGB(0,0,0,0))
 
-          p_local = c_loc(st_local)
-          call SetWindowLongPtrW(hwnd, GWLP_USERDATA, transfer(p_local, 0_i_ptr))
-        end block
-        retval = 0
+            ! Центр дыхания — центр окна (можно выбрать центр сетки, см. комментарий)
+            st_local%gx = 0.5d0 * real(st_local%backW, double)
+            st_local%gy = 0.5d0 * real(st_local%backH, double)
+            ! Альтернатива — геометрический центр сетки:
+            ! st_local%gx = baseX + step*cxg
+            ! st_local%gy = baseY + step*cyg
+
+            p_local = c_loc(st_local)
+            call SetWindowLongPtrW(hwnd, GWLP_USERDATA, transfer(p_local, 0_i_ptr))
+          end block
+          retval = 0
+
 
       case (WM_DESTROY)
         resultbool = KillTimer(hwnd, TIMER_ID)
@@ -503,31 +514,49 @@ contains
         end if
         retval = 0
 
-      case (WM_TIMER)
-       
-        if (wParam == int(TIMER_ID, i_ptr)) then
-          p = transfer(GetWindowLongPtrW(hwnd, GWLP_USERDATA), nullptr)
-          if (c_associated(p)) then
-            call c_f_pointer(p, st)
-            if (associated(st)) then
-              dt = 0.016d0
-              N  = size(st%clocks)
-              do k = 1, N
-                clk => st%clocks(k)
-                clk%theta  = clk%theta  + st%omega_fast(k)*dt
-                if (clk%theta  >= 2*PI) clk%theta  = clk%theta  - 2*PI
-                clk%theta2 = clk%theta2 + st%omega_slow(k)*dt
-                if (clk%theta2 >= 2*PI) clk%theta2 = clk%theta2 - 2*PI
-              end do
-              ok = InvalidateRect(hwnd, nullptr, 0_int32)
-              
-            end if
+     case (WM_TIMER)
+      if (wParam == int(TIMER_ID, i_ptr)) then
+        p = transfer(GetWindowLongPtrW(hwnd, GWLP_USERDATA), nullptr)
+        if (c_associated(p)) then
+          call c_f_pointer(p, st)
+          if (associated(st)) then
+            dt = 0.016d0
+
+            ! дыхание: фаза и масштаб
+            ! breath_speed — Гц (циклов/сек), переведём в рад/сек
+            st%breath_phase = st%breath_phase + (1.0d0*PI*st%breath_speed)*dt
+            if (st%breath_phase > 1.0d6) st%breath_phase = modulo(st%breath_phase, 1.0d0*PI)
+            scale = 1.0d0 + 10*st%breath_amp * sin(st%breath_phase)
+
+            N  = size(st%clocks)
+            do k = 1, N
+              clk => st%clocks(k)
+
+              ! вращения как было
+              clk%theta  = clk%theta  + st%omega_fast(k)*dt
+              if (clk%theta  >= 2*PI) clk%theta  = clk%theta  - 2*PI
+              clk%theta2 = clk%theta2 + st%omega_slow(k)*dt
+              if (clk%theta2 >= 2*PI) clk%theta2 = clk%theta2 - 2*PI
+
+              ! пересчёт ТЕКУЩИХ центров от базы относительно (gx,gy)
+              dx = clk%ox - st%gx
+              dy = clk%oy - st%gy
+              clk%cx = st%gx + scale * dx
+              clk%cy = st%gy + scale * dy
+            end do
+
+            ok = InvalidateRect(hwnd, nullptr, 0_int32)
           end if
         end if
-        
+      end if
+      retval = 0
+
+               
+            
         retval = 0
 
       case (WM_SIZE)
+      
         p = transfer(GetWindowLongPtrW(hwnd, GWLP_USERDATA), nullptr)
         if (c_associated(p)) then
           call c_f_pointer(p, st)
@@ -545,6 +574,7 @@ contains
             end if
           end if
         end if
+        
         retval = 0
         
       case (WM_ERASEBKGND)
@@ -586,8 +616,8 @@ contains
                 N = size(st%clocks)
                 do k = 1, N
                   clk => st%clocks(k)
-                  cx = int(nint(clk%cx), int32)
-                  cy = int(nint(clk%cy), int32)
+                  cx = int(nint(clk%cx), int32) 
+                  cy = int(nint(clk%cy), int32) 
 
                   x1 = cx + int( nint( clk%rx * cos(clk%theta) ), int32 )
                   y1 = cy + int( nint( clk%ry * sin(clk%theta) ), int32 )
