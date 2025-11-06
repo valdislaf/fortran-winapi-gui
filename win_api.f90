@@ -138,7 +138,19 @@ module win_api
       type(ptr), value        :: lpPaint
       type(ptr)               :: BeginPaint  ! возвращает HDC
     end function 
+    ! Диагностика: сколько GDI/USER-объектов у процесса
+     function GetGuiResources(hProcess, uiFlags) bind(C,name="GetGuiResources")
+       use standard
+       type(ptr), value :: hProcess
+       integer(int32), value :: uiFlags
+       integer(int32) :: GetGuiResources
+     end function
 
+     ! Текущий процесс (для GetGuiResources)
+     function GetCurrentProcess() bind(C,name="GetCurrentProcess")
+       use standard
+       type(ptr) :: GetCurrentProcess
+     end function
       function EndPaint(hWnd, lpPaint) bind(C, name="EndPaint")
         use standard
         type(ptr), value :: hWnd
@@ -343,7 +355,7 @@ contains
         real(double), parameter :: f_center = PI   ! множитель в центре (быстрее)
         real(double), parameter :: f_edge   = 1.00d0   ! множитель у краёв (медленнее)
         real(double), parameter :: falloffP = 2.0d0    ! степень плавности (2 = квадратично)
-
+        integer(int32) :: gdiCnt
         ! центр в индексах (не в пикселях)
         real(double) :: cxg, cyg, dxg, dyg, dist, Rmax, mix
         real(double) :: mix2
@@ -544,6 +556,8 @@ contains
           end if
 
           ok  = EndPaint(hwnd, c_loc(ps))
+          gdiCnt = GetGuiResources(GetCurrentProcess(), 0)  ! GDI
+          print *,gdiCnt
           retval = 0
 
 
