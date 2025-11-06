@@ -301,36 +301,36 @@ module win_api
     end function
     ! --- проверки и вспомогательные
     function IsWindow(hWnd) bind(C, name="IsWindow")
-      use iso_c_binding, only: c_ptr, c_int32_t
-      type(c_ptr), value :: hWnd
-      integer(c_int32_t) :: IsWindow     ! BOOL
+      use standard
+      type(ptr), value :: hWnd
+      integer(int32) :: IsWindow     ! BOOL
     end function
 
     function WindowFromDC(hdc) bind(C, name="WindowFromDC")
-      use iso_c_binding, only: c_ptr
-      type(c_ptr), value :: hdc
-      type(c_ptr) :: WindowFromDC        ! HWND
+      use standard
+      type(ptr), value :: hdc
+      type(ptr) :: WindowFromDC        ! HWND
     end function
 
     function GetParent(hWnd) bind(C, name="GetParent")
-      use iso_c_binding, only: c_ptr
-      type(c_ptr), value :: hWnd
-      type(c_ptr) :: GetParent           ! HWND
+      use standard
+      type(ptr), value :: hWnd
+      type(ptr) :: GetParent           ! HWND
     end function
 
     function GetAncestor(hWnd, gaFlags) bind(C, name="GetAncestor")
-      use iso_c_binding, only: c_ptr, c_int32_t
-      type(c_ptr), value :: hWnd
-      integer(c_int32_t), value :: gaFlags
-      type(c_ptr) :: GetAncestor         ! HWND
+      use standard
+      type(ptr), value :: hWnd
+      integer(int32), value :: gaFlags
+      type(ptr) :: GetAncestor         ! HWND
     end function
 
     function GetClassNameW(hWnd, lpClassName, nMaxCount) bind(C, name="GetClassNameW")
-      use iso_c_binding, only: c_ptr, c_int32_t
-      type(c_ptr), value :: hWnd
-      type(c_ptr), value :: lpClassName   ! LPWSTR buffer
-      integer(c_int32_t), value :: nMaxCount
-      integer(c_int32_t) :: GetClassNameW ! length
+      use standard
+      type(ptr), value :: hWnd
+      type(ptr), value :: lpClassName   ! LPWSTR buffer
+      integer(int32), value :: nMaxCount
+      integer(int32) :: GetClassNameW ! length
     end function
 
   end interface
@@ -346,7 +346,7 @@ contains
       integer(i_ptr), value :: wParam, lParam
       integer(i_ptr)        :: res 
       integer(int32)          :: width, height, lp32, panelActualWidth
-      type(c_ptr) :: appDataPtr    
+      type(ptr) :: appDataPtr    
       integer(i_ptr) :: userData
       integer(int32) :: resultbool
       integer(i_ptr) :: resultInvalidate
@@ -471,7 +471,7 @@ contains
           baseY = 8.0d0
           step  = 5.0d0
           rad   = 4.0d0
-          w_base = 4.0d0 * PI / 4.0d0
+          w_base = 10.0d0 * PI / 4.0d0
 
           allocate(st_local%clocks(N))
           allocate(st_local%omega_fast(N))
@@ -653,7 +653,7 @@ contains
      
         gdiCnt = GetGuiResources(GetCurrentProcess(), 0)  ! GDI
         usrCnt = GetGuiResources(GetCurrentProcess(), 1)  ! USER
-       ! print*,gdiCnt
+        !print*,gdiCnt
         retval = 0
 
       case default
@@ -688,15 +688,15 @@ contains
           if (c_associated(st%hBmp)) then
             if (c_associated(st%hBmpOld)) tmp = SelectObject(st%hMemDC, st%hBmpOld)
             ignore = DeleteObject(st%hBmp)
-            st%hBmp = c_null_ptr
+            st%hBmp = nullptr
           end if
           ignore = DeleteDC(st%hMemDC)
-          st%hMemDC  = c_null_ptr
-          st%hBmpOld = c_null_ptr
+          st%hMemDC  = nullptr
+          st%hBmpOld = nullptr
         end if
         if (c_associated(st%hbg_brush)) then
           ignore = DeleteObject(st%hbg_brush)
-          st%hbg_brush = c_null_ptr
+          st%hbg_brush = nullptr
         end if
         if (associated(st%clocks))      deallocate(st%clocks)
         if (associated(st%omega_fast))  deallocate(st%omega_fast)
@@ -706,9 +706,9 @@ contains
       end subroutine CleanupAppState
 
       pure integer(int32) function clamp255(x) result(i)
-        use iso_c_binding, only: c_double
-        real(c_double), value :: x
-        real(c_double) :: y
+        use standard
+        real(double), value :: x
+        real(double) :: y
         y = max(0.0d0, min(255.0d0, x))
         i = int(nint(y), int32)
       end function
@@ -734,20 +734,20 @@ contains
         b8 = clamp255( (bp+m)*255.0d0 )
       end subroutine
         subroutine dump_hwnd(label, h)
-          use iso_c_binding, only: c_ptr, c_intptr_t
+          use standard
           character(*), intent(in) :: label
-          type(c_ptr),  intent(in) :: h
-          integer(c_intptr_t) :: v
+          type(ptr),  intent(in) :: h
+          integer(i_ptr) :: v
           v = transfer(h, 0_c_intptr_t)
           write(*, '(A, Z16.16)') trim(label)//' hwnd=0x', v
         end subroutine
 
         subroutine dump_hwnd_chain(label, h)
-          use iso_c_binding, only: c_ptr, c_intptr_t
+          use standard
           character(*), intent(in) :: label
-          type(c_ptr),  intent(in) :: h
-          integer(c_intptr_t) :: v, vp, vr
-          type(c_ptr) :: p, r
+          type(ptr),  intent(in) :: h
+          integer(i_ptr) :: v, vp, vr
+          type(ptr) :: p, r
           v  = transfer(h,  0_c_intptr_t)
           p  = GetParent(h);   vp = transfer(p, 0_c_intptr_t)
           r  = GetAncestor(h, 2); vr = transfer(r, 0_c_intptr_t)  ! GA_ROOT=2
@@ -757,11 +757,11 @@ contains
         end subroutine
 
         subroutine dump_hdc_coherence(hwnd, hdc, ps_hdc)
-          use iso_c_binding, only: c_ptr, c_intptr_t, c_int32_t
-          type(c_ptr), intent(in) :: hwnd, hdc, ps_hdc
-          type(c_ptr) :: wnd_from_dc
-          integer(c_intptr_t) :: v_hwnd, v_hdc, v_ps, v_wnd
-          integer(c_int32_t) :: ok
+          use standard
+          type(ptr), intent(in) :: hwnd, hdc, ps_hdc
+          type(ptr) :: wnd_from_dc
+          integer(i_ptr) :: v_hwnd, v_hdc, v_ps, v_wnd
+          integer(int32) :: ok
           v_hwnd = transfer(hwnd,   0_c_intptr_t)
           v_hdc  = transfer(hdc,    0_c_intptr_t)
           v_ps   = transfer(ps_hdc, 0_c_intptr_t)
