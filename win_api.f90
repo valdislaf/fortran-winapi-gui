@@ -471,7 +471,7 @@ contains
           baseY = 8.0d0
           step  = 5.0d0
           rad   = 4.0d0
-          w_base = 8.0d0 * PI / 4.0d0
+          w_base = 4.0d0 * PI / 4.0d0
 
           allocate(st_local%clocks(N))
           allocate(st_local%omega_fast(N))
@@ -501,8 +501,8 @@ contains
               H = 270.0d0 * t
               call hsv_to_rgb_u8(H, 1.0d0, 1.0d0, r8, g8, b8)
 
-              mix  = f_edge + (f_center - f_edge) * exp( - (dist/sigma)**1 )
-              mix2 = real(NINT(mix * 1000.0d0)) / 1000.0d0
+              mix  = f_edge + (f_center - f_edge) * exp( - (dist/sigma)**1.0d0 )
+              mix2 = real(NINT(mix * 100.0d0)) / 100.0d0
 
               st_local%omega_fast(k) = w_base * mix2 * 5.0d0
               st_local%omega_slow(k) = (w_base/60.0d0) * mix2 * 5.0d0
