@@ -438,9 +438,9 @@ contains
 
           baseX = 8.0d0
           baseY = 8.0d0
-          step  = 5.0d0
+          step  = 8.0d0
           rad   = 4.0d0
-          w_base = 10.0d0 * PI / 4.0d0
+          w_base = 2.0d0 * PI / 4.0d0
 
           allocate(st_local%clocks(N))
           allocate(st_local%omega_fast(N))
@@ -678,7 +678,7 @@ contains
         use standard
         real(double), value :: x
         real(double) :: y
-        y = max(0.0d0, min(255.0d0, x))
+        y = max(1.0d0, min(253.0d0, x))
         i = int(nint(y), int32)
       end function
 
