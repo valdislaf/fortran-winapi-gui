@@ -438,7 +438,7 @@ contains
 
           baseX = 8.0d0
           baseY = 8.0d0
-          step  = 8.0d0
+          step  = 7.0d0
           rad   = 4.0d0
           w_base = 2.0d0 * PI / 4.0d0
 
@@ -586,8 +586,8 @@ contains
                 N = size(st%clocks)
                 do k = 1, N
                   clk => st%clocks(k)
-                  cx = int(nint(clk%cx), int32)
-                  cy = int(nint(clk%cy), int32)
+                  cx = int(nint(clk%cx), int32) 
+                  cy = int(nint(clk%cy), int32) 
 
                   x1 = cx + int( nint( clk%rx * cos(clk%theta) ), int32 )
                   y1 = cy + int( nint( clk%ry * sin(clk%theta) ), int32 )
@@ -599,11 +599,13 @@ contains
                   clB11 = clamp255(b9 - (1 - sin(clk%theta))*10)
                   clG11 = clamp255(g9 - (1 - sin(clk%theta))*10)
                   clR11 = clamp255(r9 - (1 - sin(clk%theta))*10)
-                  call DrawHand(st%hMemDC, cx, cy, x2, y2, MakeARGB(0, clB11, clG11, clR11), 1)
+                  !call DrawHand(st%hMemDC, cx, cy, x2, y2, MakeARGB(0, clB11, clG11, clR11), 1)
+                  !call DrawOrbiterDot(st%hMemDC, cx, cy, x2, y2, MakeARGB(st%color_ref(k)%A, clB11, clG11, clR11), 1)
                   clB11 = clamp255(st%color_ref(k)%B - (1 - cos(clk%theta))*10)
                   clG11 = clamp255(st%color_ref(k)%G - (1 - cos(clk%theta))*10)
                   clR11 = clamp255(st%color_ref(k)%R - (1 - cos(clk%theta))*10)
-                  call DrawHand(st%hMemDC, cx, cy, x1, y1, MakeARGB(st%color_ref(k)%A, clB11, clG11, clR11), 1)
+                  !call DrawHand(st%hMemDC, cx, cy, x1, y1, MakeARGB(st%color_ref(k)%A, clB11, clG11, clR11), 1)
+                  call DrawOrbiterDot(st%hMemDC, cx, cy, x1, y1,  MakeARGB(st%color_ref(k)%A, clB11, clG11, clR11), 1)
                 end do
 
                 ! 3) вывод на экран
@@ -646,6 +648,33 @@ contains
 
         ! восстановить прежний объект
         tmp = SelectObject(hdc, hOld)
+    end subroutine
+    subroutine DrawOrbiterDot(hdc, cx, cy, x, y, colorBGR, offset_px)
+      use standard
+      type(ptr), value :: hdc
+      integer(int32), value :: cx, cy, x, y, colorBGR, offset_px
+
+      real(double) :: vx, vy, len, ux, uy
+      integer(int32) :: qx, qy, ok
+      type(ptr) :: hOld, tmp
+
+      vx = real(x - cx, double)
+      vy = real(y - cy, double)
+      len = sqrt(vx*vx + vy*vy)
+      if (len < 1.0d-9) return   ! слишком близко к центру — нечего смещать
+
+      ux = vx / len
+      uy = vy / len
+
+      qx = x - int(nint(ux * real(offset_px, double)), int32)
+      qy = y - int(nint(uy * real(offset_px, double)), int32)
+
+      ! Поставим точку (штрих длиной 0)
+      hOld = SelectObject(hdc, GetStockObject(DC_PEN))
+      call SetDCPenColor(hdc, colorBGR)
+      ok = MoveToEx(hdc, qx, qy, nullptr)
+      ok  = LineTo(hdc, x, y)
+      tmp = SelectObject(hdc, hOld)
     end subroutine
 
       subroutine CleanupAppState(st)
